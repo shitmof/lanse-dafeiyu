@@ -1,0 +1,14 @@
+.gradle/
+**/build/
+local.properties
+research/
+output/
+*.jks
+*.keystore
+signing.properties
+.idea/
+*.iml
+__pycache__/
+.local/
+app/src/main/assets/animations/
+app/src/main/assets/memes/

@@ -1,0 +1,855 @@
+{
+  "upstream": "PC2005-cloud/dsh-pet",
+  "version": "0.3.8",
+  "commit": "593b9b0785f883630243ef6213542f4603ef69ad",
+  "animations": [
+    {
+      "id": "92b06b85ab76",
+      "name": "待机呼吸休闲",
+      "category": "日常",
+      "file": "animations/92b06b85ab76.webp",
+      "source_sha256": "deb965d05a85dacf5ff4a20faa757846f0d11679598c3ec578a5571487660395",
+      "sha256": "28a8bf85f110c01adf7e1d7959a86ed5c1f76501ce0e8e0eb9edcb051a033421"
+    },
+    {
+      "id": "4f74c11cf2c1",
+      "name": "东张西望",
+      "category": "日常",
+      "file": "animations/4f74c11cf2c1.webp",
+      "source_sha256": "a20ed02ccc5e72075a3ca83fabb57d9aac5ded699f52d00ec6de72069799fcd5",
+      "sha256": "7b8c9560dc7bf62486c9a06db363131d17626979fdf2738121fa60c53c420436"
+    },
+    {
+      "id": "52cdbcb79a90",
+      "name": "被鼠标拖拽悬空反馈",
+      "category": "互动",
+      "file": "animations/52cdbcb79a90.webp",
+      "source_sha256": "31373a86026636eecc890db763760309360310eb095cf5575b13c9ca2a6cc80e",
+      "sha256": "488f1e1dfd14323b65891471672ce3da606cac683e59de3e6fdc7b06e4c3ac26"
+    },
+    {
+      "id": "883adfe0011e",
+      "name": "点击回应-开心跃动",
+      "category": "互动",
+      "file": "animations/883adfe0011e.webp",
+      "source_sha256": "86dcb0c3dd7b651de9c107e927d57a5c4224599101706dbdcc782fa48bcd0ad7",
+      "sha256": "36da5b088529da902a89e8ce5dcd7ff8712e9a1d3a7fc1e8a5522a55c330e0e2"
+    },
+    {
+      "id": "6e0756a053b1",
+      "name": "点击回应-害羞惊讶",
+      "category": "互动",
+      "file": "animations/6e0756a053b1.webp",
+      "source_sha256": "a04968bbc46d1ebea07f81e5dabd93b0b67a9d07f1371e9887b33075134ad00d",
+      "sha256": "ca5569e2bbc84a249247a0b2a4558519a9adfa65c6cdd7372580742e86d3e5fb"
+    },
+    {
+      "id": "ee4ade192190",
+      "name": "点击回应-傲娇生气",
+      "category": "互动",
+      "file": "animations/ee4ade192190.webp",
+      "source_sha256": "6b7176b98408cb649d1d37b6a6222a21aa6b128187e3e0b2d18550d35ab81064",
+      "sha256": "9a2fed22ffc6df412419e9ad15c48e1797797ed918879534026b3db43590b067"
+    },
+    {
+      "id": "e686b66e0083",
+      "name": "点击回应-挠痒咯咯笑",
+      "category": "互动",
+      "file": "animations/e686b66e0083.webp",
+      "source_sha256": "f228279219f4084323ca1bfef1604f7c77bb3f505d45a8d1747b5ac3f9f2393b",
+      "sha256": "6b2d75b3543838e8c1987ea2a85120d8f5984e58f8867f3380410fff5d9221bc"
+    },
+    {
+      "id": "6eaabc6c5712",
+      "name": "点击回应-元气挥手",
+      "category": "互动",
+      "file": "animations/6eaabc6c5712.webp",
+      "source_sha256": "48cd729ccdcf746369942ea954d242e9afdd5643e1dac3827fa5e67450eb8776",
+      "sha256": "c26c35d0c2633643713e04f6b4cc564ba30c534a2e57102f82fd2178234e425b"
+    },
+    {
+      "id": "26bf18c72287",
+      "name": "螃蟹走路",
+      "category": "移动",
+      "file": "animations/26bf18c72287.webp",
+      "source_sha256": "5696b0878be38cc450d6eaace837aef1c1b5834f1382bc6c11c2de582f284673",
+      "sha256": "49b15ce4aec7b69d3c6ee500f23c68d46ae4aadbcd5e1b77f7fcd4494a34e7e3"
+    },
+    {
+      "id": "307947b984ef",
+      "name": "原地漂浮踏步",
+      "category": "移动",
+      "file": "animations/307947b984ef.webp",
+      "source_sha256": "7dee1c14672f1f99bebe5e6f1a52d6664b851ed95f9958ac6c12b753a5e5cc81",
+      "sha256": "e00f0cb79401400fafb9900ae5c3084f8908d695488f6e8280cd0c83b70d0afb"
+    },
+    {
+      "id": "06b43873e9cb",
+      "name": "原地左转奔跑",
+      "category": "移动",
+      "file": "animations/06b43873e9cb.webp",
+      "source_sha256": "79882aedd7b77caaacce1a34dece68e2f001a3dbfa5f9d049c1ce2fc04518d52",
+      "sha256": "cff791a8266d3f9c3f5c6e4356eb43c322317b1326462edec5897bbad2381e81"
+    },
+    {
+      "id": "ffdd15b35609",
+      "name": "悠闲哼歌",
+      "category": "日常",
+      "file": "animations/ffdd15b35609.webp",
+      "source_sha256": "358905afc2c81a9ed478bcf121a8f2f19276766b1d382d0067456bd57d1d7dbb",
+      "sha256": "ed95eb1e6fce7b8230eda8f715a9cc6ecf50dda9e0dca37b88196e35683769c6"
+    },
+    {
+      "id": "017b1556ab63",
+      "name": "超大伸懒腰",
+      "category": "日常",
+      "file": "animations/017b1556ab63.webp",
+      "source_sha256": "0ac66d918cc5efd49be1273c3830de73eae5f9bdcd5fcb968d1b2f9b487705ad",
+      "sha256": "aa98b91363b50b4130b790f7d21644d3e8ad66d9d06cdfac320314ba28980f96"
+    },
+    {
+      "id": "6b4bc721cf28",
+      "name": "原地敲击桌面互动",
+      "category": "日常",
+      "file": "animations/6b4bc721cf28.webp",
+      "source_sha256": "a40f481e89abcc726c89f30b01d085ca8c17a090e71facdd5e7f747e771093eb",
+      "sha256": "c89f398f7d86c5a54e536065109093fa542b612164011d1514bd23cdb4857118"
+    },
+    {
+      "id": "588817adf175",
+      "name": "原地重力下蹲压缩",
+      "category": "日常",
+      "file": "animations/588817adf175.webp",
+      "source_sha256": "1c8972478a7f347818165db62b468f1624ec11d0862f38aec3078e3870831d24",
+      "sha256": "658af54e34b5165aafab448719f8e887f13a112f91f1885e16df398e327c35ef"
+    },
+    {
+      "id": "5b3f25958775",
+      "name": "哈欠连天",
+      "category": "日常",
+      "file": "animations/5b3f25958775.webp",
+      "source_sha256": "2b23372e1ff2bc2f9078c09740708c960d4ea021f9fc3cca294d9df11e393ec8",
+      "sha256": "d49e30ea10792fe7da66c55a02b69e8b287b4ef5d472bfc3748fd03ae4bb9ba6"
+    },
+    {
+      "id": "51b658e2ab5e",
+      "name": "原地小憩沉眠",
+      "category": "日常",
+      "file": "animations/51b658e2ab5e.webp",
+      "source_sha256": "31d4a6b36a29b2a4fe097384173d3bbeb3fa2f40f526b13191791456bf7507a1",
+      "sha256": "a833cff43d1193e9c8674120a383675599d306e718ab77f20acde69bcf99ba10"
+    },
+    {
+      "id": "eb1533b0b8b2",
+      "name": "女仆屈膝礼仪",
+      "category": "日常",
+      "file": "animations/eb1533b0b8b2.webp",
+      "source_sha256": "6536fb519ba73bbc338d30cf7286b14ffde1278b6d469c64573536dc0f896918",
+      "sha256": "97c466028cf4b7bbbcc664eaaa8a951a8226705f56931196673ad2fb14a7a7a6"
+    },
+    {
+      "id": "d0c3a592b5b1",
+      "name": "被吓一跳",
+      "category": "日常",
+      "file": "animations/d0c3a592b5b1.webp",
+      "source_sha256": "537dde496e0f776e775dec1bb7bfe3fbc5eebf89112469a1a910ad0433ccde66",
+      "sha256": "403e01e3dba7e41d5a835fac1bd57095f2cae350303d63a54286d1b4621b5e81"
+    },
+    {
+      "id": "f338f5328e27",
+      "name": "小幅度原地360度旋转展示",
+      "category": "日常",
+      "file": "animations/f338f5328e27.webp",
+      "source_sha256": "9f1a927f63c73e3c35ee5f4d2eb58f4a46ac7eca2af69388f320d10cdef8d29c",
+      "sha256": "1edab89d9c03aac595d4ac7713552b0e5530cd82e6dd70a33b00b5ef27501b0e"
+    },
+    {
+      "id": "5a837fd2229b",
+      "name": "偷吃零食被抓住",
+      "category": "日常",
+      "file": "animations/5a837fd2229b.webp",
+      "source_sha256": "c3b783351ad38fdd931e80b188ecb12d273f21e4794aed2c41f267bdb75ff897",
+      "sha256": "2feb5b3d457575cef7f5d9e843d4090d0b5ac151a90d5128318d5e87b38abdd5"
+    },
+    {
+      "id": "49c0d89c0992",
+      "name": "用鲸鱼尾巴拍打地面",
+      "category": "日常",
+      "file": "animations/49c0d89c0992.webp",
+      "source_sha256": "e3f92df2cf182fdcb109ad0a865689d66e0a0d10db14c1528e5b3cb2f0bf090d",
+      "sha256": "8ba13d2c66e4c4ca620934572174ab3dbfbd144eafc9a4ce3d737190c824249b"
+    },
+    {
+      "id": "0cd58455e2de",
+      "name": "打瞌睡被惊醒",
+      "category": "日常",
+      "file": "animations/0cd58455e2de.webp",
+      "source_sha256": "7e10c87cfcbd63b20b5a3787be71b0500381d54ea04a5ac0e9d99f59ed49a6d7",
+      "sha256": "144dba2d639a8664f7b7bcd734b8facd172c1039a2fba56887463ba7088e238f"
+    },
+    {
+      "id": "1c462308b734",
+      "name": "照镜子",
+      "category": "日常",
+      "file": "animations/1c462308b734.webp",
+      "source_sha256": "13dc61c003e500d906b6526765072b7a78c0709491a397d4e70a88ec7ea63310",
+      "sha256": "28db5e8c66b835c7e0b88009bd18eab5d5ca91d543ced7cdcba21d09b27bfb41"
+    },
+    {
+      "id": "eb2f43dadafd",
+      "name": "整体换装试色",
+      "category": "日常",
+      "file": "animations/eb2f43dadafd.webp",
+      "source_sha256": "e8e599b12da7f3437c98425f6b192dd0c81a6b63bbba5e7927f53c22f757b094",
+      "sha256": "065c29410eb43e1a17b7fd35a67c4759ac9c65543d77c27b0e3f8da5d249d542"
+    },
+    {
+      "id": "eb604d240d49",
+      "name": "轻快记录",
+      "category": "日常",
+      "file": "animations/eb604d240d49.webp",
+      "source_sha256": "1da04162fed5cd52bd4a6a6027a6902f50bda0969d34465bc2d332cf3679bbd5",
+      "sha256": "76de4a822f298b11d4331bf5961a9c33ca875a2a691c17d7b6861c6978c5a7a2"
+    },
+    {
+      "id": "43081dd0528e",
+      "name": "写代码",
+      "category": "日常",
+      "file": "animations/43081dd0528e.webp",
+      "source_sha256": "0441287737cdbb993ce90dfa74c67ea4ea3549d8c8ea98946604668464589ed7",
+      "sha256": "8d035ea99ddfed0d3dbca9e7fc3f506d9a72b09cb9b23133a4e85c279e0f2fdf"
+    },
+    {
+      "id": "d3d5a25277d5",
+      "name": "摇扇纳凉",
+      "category": "日常",
+      "file": "animations/d3d5a25277d5.webp",
+      "source_sha256": "87d4b9454692484e4809b45071751b2144fc82fd8696fafabb32e19af98350f2",
+      "sha256": "a613318e28ebdb78c55c4d3eb3cb37dcc8e02792023efd3217b2152dd8e0c3d2"
+    },
+    {
+      "id": "df92f8cfaf20",
+      "name": "晨间刷牙",
+      "category": "日常",
+      "file": "animations/df92f8cfaf20.webp",
+      "source_sha256": "017e384e7e13732fb12428d024ef686e79df5b79bfab0d83faa7fa50653d1bc4",
+      "sha256": "027830fddfbc93e5e4a5e868a4a67814543a4cd94f492883bd55a229e28284ce"
+    },
+    {
+      "id": "c191bc7c5fcd",
+      "name": "原地专心玩魔方",
+      "category": "玩耍",
+      "file": "animations/c191bc7c5fcd.webp",
+      "source_sha256": "ad54da175ba86b19a84b73b3169fb418b2df016560bb274283f200aca351e712",
+      "sha256": "bbeea6f243d37c7c8e3591265b468e2007d27df3e2329f1f091f084451a69cce"
+    },
+    {
+      "id": "d42c9a743c4f",
+      "name": "原地蹲下玩玩具汽车",
+      "category": "玩耍",
+      "file": "animations/d42c9a743c4f.webp",
+      "source_sha256": "3ec9978ce3663d9bc4bfe5f5223f0a4e3d9ea6fcd0a6acdbaa802e0cfba36bf2",
+      "sha256": "54c4939c700f980f640978811dd34517931b94713cca51d0d3e075239d80a34e"
+    },
+    {
+      "id": "9a1e07e58053",
+      "name": "鲸鱼吐泡泡特效",
+      "category": "玩耍",
+      "file": "animations/9a1e07e58053.webp",
+      "source_sha256": "d64d02059dc1602f7de5aa3135d381351363f021b2bceed47655db322cc71db3",
+      "sha256": "201381741f0e04ee9c5649d6e790613340583837430800d35b9a924a6ad93847"
+    },
+    {
+      "id": "8c0f7b1e5ac8",
+      "name": "原地跳跃抓碎头顶物品",
+      "category": "玩耍",
+      "file": "animations/8c0f7b1e5ac8.webp",
+      "source_sha256": "ccb906c677c7b739eb0dbf5307160e66583562c2a6caec72a9d3d14a202fcccd",
+      "sha256": "3bee9ed39949e3d6f3e8f9dfe2de9ff97e5d3b878f8fe57563643249e5e2bd05"
+    },
+    {
+      "id": "95691aee0f02",
+      "name": "玩游戏气急败坏",
+      "category": "玩耍",
+      "file": "animations/95691aee0f02.webp",
+      "source_sha256": "8e406bc52cf2a20c9d288867367c4df7c45a5dc78443bc5c2fdc83835ac0b4c3",
+      "sha256": "1f7783cbfa49ebf94ea0d8f40e24052a0a967d0328b4d901684875dde3abd0b0"
+    },
+    {
+      "id": "c8de468684ae",
+      "name": "玩水枪",
+      "category": "玩耍",
+      "file": "animations/c8de468684ae.webp",
+      "source_sha256": "448f732417ac4dcb6ca140cd3d73896aaea7f5dac2876a9a0f7c0776478d7128",
+      "sha256": "1783aee7e3d39da4a501751921a2634340f74b60e2a626f9b7fc8b18cdba0f7d"
+    },
+    {
+      "id": "40ddb28a443b",
+      "name": "小提琴演奏",
+      "category": "玩耍",
+      "file": "animations/40ddb28a443b.webp",
+      "source_sha256": "03816be0fcd499b63ed667e8b87c234094e64c59f1cd222455cf6a27ac832d1c",
+      "sha256": "2f5278cc6ae93cf2212c65a880e6733bd6bfe50fad70ce09797667f0c7f06b25"
+    },
+    {
+      "id": "186c48064605",
+      "name": "蓝鲸现世",
+      "category": "玩耍",
+      "file": "animations/186c48064605.webp",
+      "source_sha256": "ed72f0ede7c6cd9482d44aa31002214d461b833c456f3ea40a52c3a0ddc20230",
+      "sha256": "e1568bf90341ea78595144ca61a064c2c19284bcc846d969fc94b78cc4fa9c16"
+    },
+    {
+      "id": "95d45f45508e",
+      "name": "优雅女仆舞",
+      "category": "玩耍",
+      "file": "animations/95d45f45508e.webp",
+      "source_sha256": "74209c4c668545ab1e2366e0d1c0709b7bea0312eeba7e89b553d5b977bfe649",
+      "sha256": "32c9d1a7a14cfe1a61b86f4debd3e8291146d9589b01f1a10c46ae9a06a4ae57"
+    },
+    {
+      "id": "ea4edc89d3bc",
+      "name": "轻快摇摆舞",
+      "category": "玩耍",
+      "file": "animations/ea4edc89d3bc.webp",
+      "source_sha256": "c621d00e1b959b991df8fc420e409b569e768fad7f75d1fb489375d101fee630",
+      "sha256": "975dc7798cf6e7210cf3edf01f1a4c2425c794c8dbda494edcbda84ec0371b3c"
+    },
+    {
+      "id": "8ca81701a0b3",
+      "name": "可爱宅舞",
+      "category": "玩耍",
+      "file": "animations/8ca81701a0b3.webp",
+      "source_sha256": "4f737e44ea67c20368bdce474b951902c87c37991fb0750da8ed7794df6ec55c",
+      "sha256": "74bae9b6fcf86fcdaa97fed3a9ec4fa65d48b6da553a777075b10c0968ec76d6"
+    },
+    {
+      "id": "ae0114688db7",
+      "name": "吹气球",
+      "category": "玩耍",
+      "file": "animations/ae0114688db7.webp",
+      "source_sha256": "3258f91b2000d949ba38f34c1f161b0d5fa148ecffb5a95eb8a3e10b5df7fc87",
+      "sha256": "89b76e9d6bc6dd1e4ee6ff31507a0bca76f3b91cf4324e4e50c5cd78fe1e0473"
+    },
+    {
+      "id": "4c80621ae4f2",
+      "name": "动物环绕",
+      "category": "玩耍",
+      "file": "animations/4c80621ae4f2.webp",
+      "source_sha256": "814d41e7d619f9a61f38e5494a0cfd703f8bcfd829a14fa921e1c59acf3ce872",
+      "sha256": "d4a33d5f8ed88e97d2cca449e2f09af277ba5899d3585b2f868e376a934d517d"
+    },
+    {
+      "id": "2662eea55207",
+      "name": "放风筝",
+      "category": "玩耍",
+      "file": "animations/2662eea55207.webp",
+      "source_sha256": "9d9ac75871b1c70a77fc4aaa63dd24778d79cbf492c2c5df42167199c7dd2132",
+      "sha256": "055af0f283e3c74d96ab88ac0b7b13855993e8121e3e8671187cbad401ec22a1"
+    },
+    {
+      "id": "6e6b6f4c71fa",
+      "name": "拆礼物",
+      "category": "玩耍",
+      "file": "animations/6e6b6f4c71fa.webp",
+      "source_sha256": "6f781e7eac2b295417c80ff9468902280fdcf3ae5921d59977daa8dab537940c",
+      "sha256": "88be05d5671d4a055b86dbd50157f7632c6637e985f7db557f8fb3e8622b0a5c"
+    },
+    {
+      "id": "5e3cee62bf5a",
+      "name": "变鸽子",
+      "category": "玩耍",
+      "file": "animations/5e3cee62bf5a.webp",
+      "source_sha256": "796eba8ebe705e9339035e533e4f913fb8b9810432dcd6e7ae4fc1602e9ce3cf",
+      "sha256": "5533704235fa66178c9ebeaea3f8c132118b70a1448d45d1711250ae392ded7b"
+    },
+    {
+      "id": "de9869a8c7bf",
+      "name": "扑克魔术",
+      "category": "玩耍",
+      "file": "animations/de9869a8c7bf.webp",
+      "source_sha256": "1d44a7624fb027e5f615c747014ab040ddc497f6bdbcb67194a23a53a5dba78c",
+      "sha256": "3e58475b8c8ad28d56a645ffa1e8bc520d8284ef2f0a1ae338ced603ab186991"
+    },
+    {
+      "id": "34c2b38fb6bf",
+      "name": "抽陀螺",
+      "category": "玩耍",
+      "file": "animations/34c2b38fb6bf.webp",
+      "source_sha256": "693689d7b4d02ae8cda53f8d580de5087287fc339360dd20909342f566e969ba",
+      "sha256": "38ca56aad7984373346f22599ee9f4738597bd7355e16ef3611404796048193d"
+    },
+    {
+      "id": "f1ca886dbe83",
+      "name": "吹笛子",
+      "category": "玩耍",
+      "file": "animations/f1ca886dbe83.webp",
+      "source_sha256": "9c8b754a3256778cddd88fbb073b649d5b1d2e5f96e70231bc2c3bee06fa7c78",
+      "sha256": "936b2cc24ec15cc7685e2dcafb28ad2d0f36499539209efa4d0df87370bd3a47"
+    },
+    {
+      "id": "499b64fd81be",
+      "name": "蝴蝶蜜蜂环绕头顶开花",
+      "category": "玩耍",
+      "file": "animations/499b64fd81be.webp",
+      "source_sha256": "fd286c78001fe57fc093c06a4b79ef077ade2dacd2a77e011d3f393f587707ec",
+      "sha256": "7f1013bf8929f81131adb1e99de28d01c7be5b35b1918b1128ee865967b2bc05"
+    },
+    {
+      "id": "facfd1afaab7",
+      "name": "撸猫",
+      "category": "玩耍",
+      "file": "animations/facfd1afaab7.webp",
+      "source_sha256": "068d84e944dfce17de1c5a2ee2a4bc391e2848dad88a7df4877ebf23cf38bcec",
+      "sha256": "16b9b45d7c2cdecd1bd8ec7aa51910f64356b473b52973b8a67e5c7c85fc24ab"
+    },
+    {
+      "id": "780c67b4dc83",
+      "name": "凭空生花",
+      "category": "玩耍",
+      "file": "animations/780c67b4dc83.webp",
+      "source_sha256": "d1c336bc54c57a282bec180859c7b7b58912b70b5bca7b2f49495cd30cc7d5d6",
+      "sha256": "d62398ea7eab2ce63de7d25dba2bd890b8c78666a037e559fe4b0266ab2618b4"
+    },
+    {
+      "id": "f80b8c116b42",
+      "name": "骑木马",
+      "category": "玩耍",
+      "file": "animations/f80b8c116b42.webp",
+      "source_sha256": "5f54a98ccac97eac000d799043411f4fc0732096dc51a2ad766552737578f313",
+      "sha256": "4c53301f0410972fda6eb6c211c5d74cdb172c29844ca506071ed01b51609c07"
+    },
+    {
+      "id": "47d03061fd8c",
+      "name": "三球抛接",
+      "category": "玩耍",
+      "file": "animations/47d03061fd8c.webp",
+      "source_sha256": "a64c08a4b7e5c3549616faf9dcd418e17f156b4b72d906646e4d57067df70d23",
+      "sha256": "b205d278f0677e07ee8f835b7921415bb72f248e508389a1bb26fe769f33fdfb"
+    },
+    {
+      "id": "68f9f8c6ea2b",
+      "name": "踢毽子",
+      "category": "玩耍",
+      "file": "animations/68f9f8c6ea2b.webp",
+      "source_sha256": "68937b619a44e9ca7ccdfe77e5657f7a9bfa238beb33768378b6f254a16f3dbd",
+      "sha256": "869c243a768e8178def312de3a69977c33c198fd1426a533800381d5f98e6546"
+    },
+    {
+      "id": "2abdb7e92e82",
+      "name": "下五子棋",
+      "category": "玩耍",
+      "file": "animations/2abdb7e92e82.webp",
+      "source_sha256": "0802b6b808f44846b3d194a857fb0ffd38bdea2d7cdb91c9e5e6f311e44f1953",
+      "sha256": "693cda260cfc56054e9017194db5147bf0fc91986be2d13592e3685b8ccf8e84"
+    },
+    {
+      "id": "dd035a687e36",
+      "name": "荡秋千",
+      "category": "玩耍",
+      "file": "animations/dd035a687e36.webp",
+      "source_sha256": "f32ea98e9c04553ae39939cd76c469192ebc19d98b90ebf93ec4b88bf95b25c9",
+      "sha256": "ba2df0ae4961df3795e5b7fdada831853539179a47173d21ac5cf165ebe0861f"
+    },
+    {
+      "id": "e37afa103e68",
+      "name": "吃白饭",
+      "category": "吃饭",
+      "file": "animations/e37afa103e68.webp",
+      "source_sha256": "b620413d6fa303a0ed9168dc71453c3bddc10141a0b7edeff87dc2e6e054d502",
+      "sha256": "af6bb50febc0a83bce00abfc178560f21d5037454ec949ffa04c174b5997a665"
+    },
+    {
+      "id": "41cb9c5a60d8",
+      "name": "大口吃零食",
+      "category": "吃饭",
+      "file": "animations/41cb9c5a60d8.webp",
+      "source_sha256": "fdacb534a828b0c669f22a54e8da9bb9b5d731e0132dd5ea946f7badc9229a39",
+      "sha256": "6383affa041210e2ac144fb11947928607952184c4f50392256ce774d912b6bd"
+    },
+    {
+      "id": "e77da58d470c",
+      "name": "吃Token",
+      "category": "吃饭",
+      "file": "animations/e77da58d470c.webp",
+      "source_sha256": "d46ef798fb189cd7652f63d03a35e6f314e5a598b4a65f76202ec95852eb719c",
+      "sha256": "7f4f15d13bb49185518bc6ad9617f64ad6c0fd7f45f99d9a810a722b72cc321b"
+    },
+    {
+      "id": "4a34c638ea9b",
+      "name": "吃早餐",
+      "category": "吃饭",
+      "file": "animations/4a34c638ea9b.webp",
+      "source_sha256": "893b61587aeda8ca146e32b596b00903461aab04684a146d84b31965968d60e4",
+      "sha256": "3b13d9ee49886e59fffe2c1922f0789d54830f30360c6ce98e7acb7c4161a615"
+    },
+    {
+      "id": "32eded8b4223",
+      "name": "吃午餐",
+      "category": "吃饭",
+      "file": "animations/32eded8b4223.webp",
+      "source_sha256": "e48a70e61d93195c611c2d4041be32a26a114f78c835ff6b2345459ae39a90ce",
+      "sha256": "93885911af037ab8b041569840eb86adebbc4718db43d49615b2e37660c799d0"
+    },
+    {
+      "id": "1415bd80f94b",
+      "name": "吃晚餐",
+      "category": "吃饭",
+      "file": "animations/1415bd80f94b.webp",
+      "source_sha256": "8902602fb012c29d33392822ab534ed119a136610f6bc2e8c0c51d60afec673a",
+      "sha256": "4647177375d345c3c4b4cba0861b3ed41435f060ad2bd32dc80c4779c962a48c"
+    },
+    {
+      "id": "1cdac31079ac",
+      "name": "吃冰淇淋融化",
+      "category": "吃饭",
+      "file": "animations/1cdac31079ac.webp",
+      "source_sha256": "17d73682926d6ce4203ad12d9049527e604d448bcc5c82ac5b12950b4ceb0447",
+      "sha256": "61081c76beb1ec486575a7b3418a27e19ec8e3aa1754c221b3dc907f8485ccc5"
+    },
+    {
+      "id": "953d68ca1326",
+      "name": "吃大闸蟹",
+      "category": "吃饭",
+      "file": "animations/953d68ca1326.webp",
+      "source_sha256": "fbd0f445c15fda1f827e6eb485270ddf9025ac29b3edcac28a5eff7d9aa80f46",
+      "sha256": "622b4f7157be729f8597e701db71935fd94a633e1dc08ebf61d4cb083da48be0"
+    },
+    {
+      "id": "130174a5806f",
+      "name": "吃糖葫芦",
+      "category": "吃饭",
+      "file": "animations/130174a5806f.webp",
+      "source_sha256": "6900468dc166bfb90e1cfb73de9b41a08c62513483ce1300658340cf942be3cd",
+      "sha256": "b2104b28105a516c5386351e803074ef477c88d5911fa0798561bda20ad4e703"
+    },
+    {
+      "id": "9446f04251a9",
+      "name": "吃长寿面",
+      "category": "吃饭",
+      "file": "animations/9446f04251a9.webp",
+      "source_sha256": "2881e1cd4ca31fd56ca578ce2ee73d21222f0006f237c865d9b2dc1ebc436edd",
+      "sha256": "854177ccb0d30bb9fe716fddbc9fd16420e228c4a9ca2b0e2bb80e30756a85bf"
+    },
+    {
+      "id": "0c0166227768",
+      "name": "吃西瓜",
+      "category": "吃饭",
+      "file": "animations/0c0166227768.webp",
+      "source_sha256": "0dd992fb7fb51d707d6589cb813a450437a2bd54046709f424a73353e2d7f78d",
+      "sha256": "3020631a7881461a02de605332f42258476bd778b759e7e2824625740e45b9b3"
+    },
+    {
+      "id": "0304f5f46a2e",
+      "name": "涮火锅",
+      "category": "吃饭",
+      "file": "animations/0304f5f46a2e.webp",
+      "source_sha256": "f0b345c22cf2841137d215a7b9d50252b8be0ede64887e91fdc9bd09843e3c8f",
+      "sha256": "6b6b787129789528ddd21acd3a1649029cfafa03a5631bbb90feb7b96aae191c"
+    },
+    {
+      "id": "672ee68be5f3",
+      "name": "被落叶淹没",
+      "category": "时节",
+      "file": "animations/672ee68be5f3.webp",
+      "source_sha256": "91fc8e3dbfcd24546bc30366beb120fb5de7823ed67986dd8032c9c1b29ff079",
+      "sha256": "7cdf20720e9a4eade5ffd6df67908e19f0f2b8a5185d65d55f9d5fb4b957cf58"
+    },
+    {
+      "id": "edbc797abb47",
+      "name": "中秋赏月吃月饼",
+      "category": "时节",
+      "file": "animations/edbc797abb47.webp",
+      "source_sha256": "3f64003262d3f129470721495695ecd231795d859693a748914c02c6e3883a3a",
+      "sha256": "47334464838d2f19f8ed6ab7cc5275913ab610bacc5430b5bff0ee3dc5ff64c1"
+    },
+    {
+      "id": "8e473b074a46",
+      "name": "堆雪人",
+      "category": "时节",
+      "file": "animations/8e473b074a46.webp",
+      "source_sha256": "478bdc31cc60e55e3efa139b81c7d8680a8cf83aca2304495e6da50a20a09cf5",
+      "sha256": "6a32f9b5196229b8d8efbb15d5c6920b8c03d3f6e6eb3609541d16b8a0298f37"
+    },
+    {
+      "id": "e5f9ea2c87d0",
+      "name": "放烟花",
+      "category": "时节",
+      "file": "animations/e5f9ea2c87d0.webp",
+      "source_sha256": "539ac09ae29ed0a11bd828df096f3e72f606529b3c59e29a5fcf3b051779a4d0",
+      "sha256": "1a58f81e06d4f27b200d5fc3f9c4984f49901ae5eadf74d82975832279dccd49"
+    },
+    {
+      "id": "5889cff6971f",
+      "name": "吃粽子",
+      "category": "时节",
+      "file": "animations/5889cff6971f.webp",
+      "source_sha256": "f3af3217674427fdc5609bf50b170f69669c84cf229cd7b44261c00da7876ade",
+      "sha256": "805c7af07692e094074c03368f18c3e0e7eddb27a377278b09c97e521a6b7fbf"
+    },
+    {
+      "id": "e30452be8777",
+      "name": "吃年糕",
+      "category": "时节",
+      "file": "animations/e30452be8777.webp",
+      "source_sha256": "ba0c86988687801a5b19d055d728bb182c8a95a0bdd7071dea16b83c1162135c",
+      "sha256": "77916e4e4344ddcb797e24f872d914745c51931fbbc4784c1ec2fd2972cad46c"
+    },
+    {
+      "id": "08cbe0bc79a9",
+      "name": "吃青团",
+      "category": "时节",
+      "file": "animations/08cbe0bc79a9.webp",
+      "source_sha256": "0d99393dd64ddf0b1ec4ab4cf392c86092ab5edf58d12f5b72e325035da23606",
+      "sha256": "42c008cb1fe438117c8b803fd26a7a3dd0571dc5a5e6411f5aa0b2d9960c140c"
+    },
+    {
+      "id": "cd0474d15c7f",
+      "name": "吃腊八粥",
+      "category": "时节",
+      "file": "animations/cd0474d15c7f.webp",
+      "source_sha256": "f821527812875262cc0dda50fe023c603fc89ec566172777c6bff4fa45943011",
+      "sha256": "3fb0d68347e044a44fd4e44ee2fafa2b5679b3071d0a9f9418603086b07c4b07"
+    },
+    {
+      "id": "56d0e5c5c186",
+      "name": "吃重阳糕",
+      "category": "时节",
+      "file": "animations/56d0e5c5c186.webp",
+      "source_sha256": "d2b6b466fcb1ee689ae130680bf38311e9988d995879ca3b5b1d9aa0b5438058",
+      "sha256": "4d8054f878027bc0f798164b3e1221bb1632cc0d5b7554f0f1230f83014fbb90"
+    },
+    {
+      "id": "65cad108e71d",
+      "name": "收红包",
+      "category": "时节",
+      "file": "animations/65cad108e71d.webp",
+      "source_sha256": "a0e7a9a5997aff1357c76eeaaad7a01503c320f7017766dd5a42e643daa505c1",
+      "sha256": "af298743bca8f469a2329ac5bf92e8e002d3e15962bf929c681c6ed43d35fc3c"
+    },
+    {
+      "id": "e6472bbdb242",
+      "name": "写福字",
+      "category": "时节",
+      "file": "animations/e6472bbdb242.webp",
+      "source_sha256": "7841a47a6997bb7c90d81671d524c44b1afc87ca2e8fceb17d06d99003a67181",
+      "sha256": "5908c4602eccf22304f748ae8951b22aa566e439e25cd6df62987f5c79398fd1"
+    },
+    {
+      "id": "6ff25334dac4",
+      "name": "穿针乞巧",
+      "category": "时节",
+      "file": "animations/6ff25334dac4.webp",
+      "source_sha256": "cf16647ec4cb5634e4ff022bfc139a2233cd8be82f2391472bc842f7014ddc90",
+      "sha256": "aa46aa395e603348fddffb9c4db415e2d0534137da571c5c8142c164affcc4b9"
+    },
+    {
+      "id": "bf904ff8f7a7",
+      "name": "舞狮头",
+      "category": "时节",
+      "file": "animations/bf904ff8f7a7.webp",
+      "source_sha256": "6d2006b4023d44087cf4c7dc055d1d8f2a8cec32e22610807a2dfea7bb0dc367",
+      "sha256": "74cefe26e2e1133eb458ecd9ac9be474efdb4260c21b281ec917b62386bb9e1a"
+    },
+    {
+      "id": "0ed7515025e8",
+      "name": "讨糖南瓜灯",
+      "category": "时节",
+      "file": "animations/0ed7515025e8.webp",
+      "source_sha256": "9535d1a29f780aa2d78ffaabd7ee1765952bf34b2b380e9edc25dc6a3003070b",
+      "sha256": "ad51df247b3f50241c94bcf960d3f199eabe1d137703a4e00ee11e070039401a"
+    },
+    {
+      "id": "29a3812f35c8",
+      "name": "插茱萸赏菊",
+      "category": "时节",
+      "file": "animations/29a3812f35c8.webp",
+      "source_sha256": "4e1ba56724da3663e2f5480001ab1141a82e8618c316e6e81e3dae84998452f3",
+      "sha256": "1edbb84769406837506ae97048a2ad17e9ad15d728051b3dbc1053f7b9744da5"
+    },
+    {
+      "id": "a0af2db4eae7",
+      "name": "放河灯",
+      "category": "时节",
+      "file": "animations/a0af2db4eae7.webp",
+      "source_sha256": "af744bed1ff20cc1b0492247add45f2b16433fde0b0897c31d6b0579429b788d",
+      "sha256": "d929f3ec2f9d0a67696ee9804c6902da3c93a867c35b7f4a8a64d077e804c3bf"
+    },
+    {
+      "id": "bafd79fc585d",
+      "name": "萌化小幽灵",
+      "category": "时节",
+      "file": "animations/bafd79fc585d.webp",
+      "source_sha256": "ac2012601d05bf7de7c7cced415b8793b0be3b7cfa569da06c2325f135f7e94f",
+      "sha256": "27601e495a393dd8a38e115de972a15da4dc69a52e7d7df3756d17e36ef6c171"
+    },
+    {
+      "id": "8ab776b190a6",
+      "name": "装点圣诞树",
+      "category": "时节",
+      "file": "animations/8ab776b190a6.webp",
+      "source_sha256": "25da448acdbba49c2d4b209d24053b6dd1b79e656273d1f3e659385dc2bc3759",
+      "sha256": "7818b177085a696d2c8163c91e0b6620644e24d014830fa25760feebb0f732dc"
+    },
+    {
+      "id": "cef840f5d2ee",
+      "name": "放孔明灯",
+      "category": "时节",
+      "file": "animations/cef840f5d2ee.webp",
+      "source_sha256": "cc6540b4651f6603363dd326801921d6ba220ecaaf00828b42d248eb28beeb31",
+      "sha256": "00f61ae02f829b9b5b514af54e1e9244b6a9298c2ffba3799cdad04313fd9977"
+    },
+    {
+      "id": "c60e75db7559",
+      "name": "吃汤圆",
+      "category": "时节",
+      "file": "animations/c60e75db7559.webp",
+      "source_sha256": "53a0f93612bb59c7279010f993a1101b033fc01df1998dd9874d8aea175afa6f",
+      "sha256": "d5b7ff1812ed2561c7083606985daf8bf01e5585b7ec7758d1a05144666bacac"
+    },
+    {
+      "id": "69ed8cd7f870",
+      "name": "吃饺子",
+      "category": "时节",
+      "file": "animations/69ed8cd7f870.webp",
+      "source_sha256": "a607391c206cb2a1a977d72f318a6b5bfe95aee4da9b11c9de8724bd9981cc06",
+      "sha256": "232c625c3781d5c20e85164190441045bcb4765d34f1e64ad0f107dd6348c690"
+    },
+    {
+      "id": "7740fa6b004c",
+      "name": "是啊，吃什么",
+      "category": "文字",
+      "file": "animations/7740fa6b004c.webp",
+      "source_sha256": "94e1d69e05cc66cc1dc8bf6986efc51dfd71fe22fd34166f9efe7ca2d21c1e8c",
+      "sha256": "94f05ccaf589919fcba75d0bcca8e86e9f801dd5dd69660edb187e93e8b00bbf"
+    },
+    {
+      "id": "aa28193f3a0b",
+      "name": "深度思考碎碎念",
+      "category": "文字",
+      "file": "animations/aa28193f3a0b.webp",
+      "source_sha256": "db66867cd1f5bf68b0638fe1f966d0fdf95d1573523e60c77aa8913706118e82",
+      "sha256": "cee401c9c1fe1939e9a73ce2319e5643c6d97874334e106c6887c6a49375d7a6"
+    },
+    {
+      "id": "a026f5dc44f2",
+      "name": "余额-钱袋满溢",
+      "category": "余额",
+      "file": "animations/a026f5dc44f2.webp",
+      "source_sha256": "dddd6ffc4e763b77360e49c0ccee0987a43c3d253a23e3133c334aabb598b362",
+      "sha256": "c8ac999173851fd3b0c90d60a0af3935a790e446b798dd0fee2d85595ef61a61"
+    },
+    {
+      "id": "379cfec06114",
+      "name": "余额-金袋叮当",
+      "category": "余额",
+      "file": "animations/379cfec06114.webp",
+      "source_sha256": "6fda0c4ae013cf7906afa1cb846717d097db576343dab11006f14ca5c7a9a34f",
+      "sha256": "4fbb9c84327af21d9b8ea6a74fc7901345060981bf45708e2590583be6651c30"
+    },
+    {
+      "id": "5d004816e43d",
+      "name": "余额-钱袋如常",
+      "category": "余额",
+      "file": "animations/5d004816e43d.webp",
+      "source_sha256": "f6cb9aa1c829fcbc62478dbddd0e0fcd7beb47433cea751d18b81ccccbec95d3",
+      "sha256": "2d1893d9e1d5c95cf87a0304baad08c1ddcb2f197c0aa6c383157c2991eecea0"
+    },
+    {
+      "id": "626a6651e9e1",
+      "name": "余额-数金皱眉",
+      "category": "余额",
+      "file": "animations/626a6651e9e1.webp",
+      "source_sha256": "94a7e0ee8e1012aadec33492301c893c2d1c5df7e36049dbada8c4a264bf1810",
+      "sha256": "e940be250395c121f5224b12e6b7ede49ae229b66fa751216e14a1a8bdf7e1c8"
+    },
+    {
+      "id": "1abe7c4481d3",
+      "name": "余额-袋空如洗",
+      "category": "余额",
+      "file": "animations/1abe7c4481d3.webp",
+      "source_sha256": "3db780bbc96bb362ced36078fecacfb63b9d292c06b533cfb61797adb553a7f8",
+      "sha256": "39709efeb4896d6eb524e6742bc1995a9794a719ebbb7e5f948a307363f11d4a"
+    },
+    {
+      "id": "6affb83947ba",
+      "name": "余额-分文不剩",
+      "category": "余额",
+      "file": "animations/6affb83947ba.webp",
+      "source_sha256": "b232349bdbd962bad7f3a15cfce539c6fadadfd0a286b7f03b03e59cf7aca7a8",
+      "sha256": "fb2ef1c133a65120b28a0d3bf23256ab33b90e6291cad95c23c7a6670ff2761b"
+    },
+    {
+      "id": "0d84e2120333",
+      "name": "碎碎念-擦桌碎碎念",
+      "category": "碎碎念",
+      "file": "animations/0d84e2120333.webp",
+      "source_sha256": "bfb616a3e6ed7375826d8fd00b41b9476d2e4bd65e10abddfb98f04c734e30e6",
+      "sha256": "514046dd31e9a268c64c5aeaa3f2714f5a28d69df094388d3907a0eed6e2480e"
+    },
+    {
+      "id": "61c702c24fa0",
+      "name": "碎碎念-发呆碎碎念",
+      "category": "碎碎念",
+      "file": "animations/61c702c24fa0.webp",
+      "source_sha256": "02da8cc2194250ae9708b137a3deff43fed2ebd40a7aa4a033b6262c3485eb5b",
+      "sha256": "5a93a05e15acd898df67cd93825562f3b5fa079e46fd496b0f4140c4c0cf2e9b"
+    },
+    {
+      "id": "c00d44612246",
+      "name": "碎碎念-对屏碎碎念",
+      "category": "碎碎念",
+      "file": "animations/c00d44612246.webp",
+      "source_sha256": "fda85ca286e173b7cf868c91829c3445e55c395e0c788b6be310a855b9b37973",
+      "sha256": "700e795ee26eea664f567868f8a558240f8d239862f18e6adbeb8161649f9594"
+    },
+    {
+      "id": "84fd288ba807",
+      "name": "工作状态-思考冒泡",
+      "category": "工作",
+      "file": "animations/84fd288ba807.webp",
+      "source_sha256": "b4a36cfa28ea5d7089e362a01972c6e880297c6dcd0d39f1994efd889a3c1be5",
+      "sha256": "b288a8693758a702db184201b72cf03baee9f13f4e9ceedea54891ccf74da318"
+    },
+    {
+      "id": "e98d4ca796f7",
+      "name": "工作状态-忙碌点按",
+      "category": "工作",
+      "file": "animations/e98d4ca796f7.webp",
+      "source_sha256": "b5d702e0c04adb7b255ac702001c24da36c8bf95efc891f693f4976986ab2435",
+      "sha256": "0631afb97273db1d96d8c724fd6282488d93730f7b4ab9cb6bb011900750a424"
+    },
+    {
+      "id": "35fcf8191225",
+      "name": "工作状态-清点归档",
+      "category": "工作",
+      "file": "animations/35fcf8191225.webp",
+      "source_sha256": "8c84f58f3a9e7b912e1cbfd89f77eb3652053fc9b2844295c8440cb636305d3b",
+      "sha256": "cc9309dc4934aafdbc5264dfafc6da3dfd37d067be666f98caf7838bc2554abd"
+    },
+    {
+      "id": "50deba83a57f",
+      "name": "工作状态-原地踱步张望",
+      "category": "工作",
+      "file": "animations/50deba83a57f.webp",
+      "source_sha256": "a56c17ef901fa531324a46a04def2381f65922d319ec83dadde34d2a4669e411",
+      "sha256": "b34e3b8d63891feb6550548002d38594b498502d970df9c1c3ce9eed759462fc"
+    },
+    {
+      "id": "080258d0fa3b",
+      "name": "工作状态-雀跃庆祝",
+      "category": "工作",
+      "file": "animations/080258d0fa3b.webp",
+      "source_sha256": "3ff681051a0bb4f152d7535d64b7f3194c30298bf56d41e521216a278f135d3e",
+      "sha256": "7a25236f1ebcefd789e63a75a9b09deb444a4bb0d292a0b35dc3de9744b60e17"
+    },
+    {
+      "id": "4e66e7b28f1d",
+      "name": "工作状态-垂头叹气冒汗",
+      "category": "工作",
+      "file": "animations/4e66e7b28f1d.webp",
+      "source_sha256": "ab00c844e62221905574b4c070e0d7b6fa14fb2afa1064c27a160f10e25f7196",
+      "sha256": "1b75886841ef472e008e0784597264a22311c4d90aa56735bf9b33c8119ec484"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+plugins { id 'com.android.application' }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+android {
+    namespace 'com.lanse.fish'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.lanse.fish'
+        minSdk 28
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+        testInstrumentationRunner 'com.lanse.fish.FishTestRunner'
+    }
+    def signingFile = rootProject.file('signing.properties')
+    if (signingFile.exists()) {
+        def p = new Properties(); signingFile.withInputStream { p.load(it) }
+        signingConfigs { personal { storeFile file(p['storeFile']); storePassword p['storePassword']; keyAlias p['keyAlias']; keyPassword p['keyPassword'] } }
+    }
+    buildTypes {
+        release { minifyEnabled false; if (signingFile.exists()) signingConfig signingConfigs.personal }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    lint { abortOnError true; disable 'ObsoleteSdkInt', 'SetTextI18n' }
+}
