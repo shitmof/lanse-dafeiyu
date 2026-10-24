@@ -28,7 +28,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
-          python -m pip install Pillow==11.3.0
+          python -m pip install Pillow==11.3.0 numpy
           python scripts/prepare_assets.py
           python scripts/verify_assets.py
       - name: Build and lint

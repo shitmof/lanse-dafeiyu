@@ -6,7 +6,7 @@
 
 ## 当前进度
 
-可下载版本仍为 **0.1.0**。真实手机使用反馈了左右拖动范围过窄、菜单过大、动作重复及点播跳回 App 等问题；本次先交付[现版优化方案、完整106动作目录、回退与验收](docs/0.1.1/蓝色大肥鱼_现版优化方案与验收.md)、[需求要点与结论](docs/0.1.1/需求要点与结论.md)和[给 DeepSeek 的完整实施提示词](docs/0.1.1/交给DeepSeek的完整实施提示词.md)，**尚未修改应用功能或发布修复版 APK**。源码核对含实际 REA 静态分析，见[核对记录](docs/0.1.1/源码核对记录.md)。
+可下载正式版本仍为 **0.1.0**。0.1.1 的基础体验已在本机实现并构建 **debug 测试候选**（未覆盖 0.1.0、未发布正式 Release）：[实现与测试记录](docs/0.1.1/实现与测试记录.md)。原方案、回退与验收仍见[现版优化方案](docs/0.1.1/蓝色大肥鱼_现版优化方案与验收.md)、[需求要点与结论](docs/0.1.1/需求要点与结论.md)和[给 DeepSeek 的完整实施提示词](docs/0.1.1/交给DeepSeek的完整实施提示词.md)。**本机原发行签名密钥缺失，debug 候选不能覆盖安装 0.1.0；用户手机需卸载旧包或提供原密钥后再出正式同签名包。**
 
 仓库源码与 0.1.0 Release 已按用户要求公开；显示名称统一“蓝色大肥鱼”。GitHub 仓库 URL 不支持中文，因此保留原地址，不另起英文产品名。公开不等于取消素材的禁止商用与署名限制。
 
@@ -51,7 +51,7 @@
 需要 JDK 17、Android SDK 35、Python 3.10+、FFmpeg（包含 libvpx-vp9 和 libwebp_anim）。
 
 ```powershell
-python -m pip install Pillow==11.3.0
+python -m pip install Pillow==11.3.0 numpy
 python scripts/prepare_assets.py
 python scripts/verify_assets.py
 .\gradlew.bat :app:assembleDebug :app:lintDebug

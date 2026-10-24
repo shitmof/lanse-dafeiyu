@@ -87,10 +87,10 @@ public final class PetApi {
         if(prefs.text("mode","offline").equals("dsh")){
             JSONObject r=dsh("POST","/balance",new JSONObject());
             if(!r.optBoolean("ok",true))throw new IOException("DSH 的余额服务暂不可用。");
-            String text=r.optString("text","");if(!text.isEmpty())return text;
+            String text=r.optString("text","");if(!text.isEmpty())return stamp(text);
             JSONObject sections=state().optJSONObject("sections"),leaf=sections==null?null:sections.optJSONObject("balance"),data=leaf==null?null:leaf.optJSONObject("data");
             if(data==null)throw new IOException("DSH 已接收请求，但还没有返回余额数据，请稍后再试。");
-            return formatBalance(data);
+            return stamp(formatBalance(data));
         }
         String base=prefs.text("api_url","https://api.deepseek.com");
         if(!new URI(base).getHost().equals("api.deepseek.com"))throw new IOException("独立模式余额查询支持 DeepSeek 官方 API；其他服务可通过 DSH 同步。");
@@ -98,7 +98,12 @@ public final class PetApi {
         JSONArray info=r.getJSONArray("balance_infos");StringBuilder result=new StringBuilder("当前余额");
         double total=0;for(int i=0;i<info.length();i++){JSONObject b=info.getJSONObject(i);result.append("\n").append(b.getString("total_balance")).append(" ").append(b.getString("currency"));total+=b.optDouble("total_balance",0);}
         prefs.put("balance_motion",total<=0?5:2);
-        prefs.put("balance",result.toString());return result.toString();
+        prefs.put("balance",result.toString());return stamp(result.toString());
+    }
+    private String stamp(String text){
+        String at=new SimpleDateFormat("HH:mm",Locale.CHINA).format(new Date());
+        prefs.put("balance_at",at);
+        return text+"\n更新于 "+at;
     }
     public String testConnection()throws Exception{
         if(prefs.text("mode","offline").equals("offline"))return "离线模式已就绪，不需要网络。";
@@ -124,6 +129,6 @@ public final class PetApi {
         }else if(shape.equals("points")){result="当前余额 "+d.optString("total")+" "+d.optString("unit","积分");double full=d.optDouble("full",0);if(full>0)percent=100*(1-d.optDouble("total",0)/full);
         }else if(shape.equals("windows")){StringBuilder b=new StringBuilder("额度用量");String[] keys={"rolling","weekly","monthly"},labels={d.optString("rollingLabel","滚动"),"每周","每月"};for(int i=0;i<keys.length;i++){if(d.has(keys[i])){double v=d.optDouble(keys[i],0);b.append("\n").append(labels[i]).append("已用 ").append(Math.round(v)).append('%');percent=Math.max(percent,v);}}result=b.toString();
         }else throw new IOException("此余额格式暂不支持。");
-        prefs.put("balance_motion",percent<0?2:percent>=100?5:Math.min(4,(int)Math.max(0,percent)/20));prefs.put("balance",result);return result;
+        prefs.put("balance_motion",percent<0?2:percent>=100?5:Math.min(4,(int)Math.max(0,percent)/20));prefs.put("balance",result);return stamp(result);
     }
 }
