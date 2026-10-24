@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-24",
+  "tool": "rea-agents@6.7.0",
+  "upstream_commit": "593b9b0785f883630243ef6213542f4603ef69ad",
+  "ok": true,
+  "evidence_id": "ev_c85d50bc4602992c2a0b996bf747ef1082c2816defb0516acdeee70d7c2cc07a",
+  "raw_report_sha256": "c0a896f6c148d9cdc727ffd841816ec8cfb66470ac1bed1d318c2db4b35e5931",
+  "raw_report_bytes": 27893485,
+  "statistics": {
+    "relevant_files": 170,
+    "nested_asar_containers": 0,
+    "text_bytes_read": 293649,
+    "invalid_utf8_files": 0,
+    "parsed_javascript_files": 7,
+    "skipped_javascript_files": 0,
+    "visited_ast_nodes": 27115,
+    "findings": 197,
+    "modules": 0,
+    "parse_failures": 0
+  },
+  "source_selection": {
+    "requested_paths": [
+      "src/shared/menu.ts",
+      "src/shared/pickers.ts",
+      "src/shared/motion.ts",
+      "src/shared/state.ts",
+      "src/client/pet.ts",
+      "runtime/electron-helper/sprite.js",
+      "src/host/balance/providers/deepseek-official.ts"
+    ],
+    "unselected_files": 163
+  },
+  "limitations": [
+    "Caller-selected source analysis leaves 163 inventoried files outside analysis scope. Inventory identity covers the complete artifact; relationships through unselected sources remain unknown.",
+    "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+    "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+    "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+    "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+    "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+    "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+  ],
+  "runtime_validation": false,
+  "notes": "静态记录不等于漏洞清单；未证明全项目运行时行为或下载量排名。"
+}

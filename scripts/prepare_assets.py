@@ -1,4 +1,6 @@
-"""Fetch pinned MIT-licensed dsh-pet 0.3.8 assets and preserve VP9 alpha in WebP.
+"""Fetch pinned dsh-pet 0.3.8 assets and preserve VP9 alpha in WebP.
+
+Assets have upstream noncommercial/attribution terms; see THIRD_PARTY_NOTICES.md.
 No keying or generated substitutes. Full duration and source timing retained;
 the canvas is resized from 640x360 to 480x270 for phone screens.
 Requires ffmpeg with libvpx.

@@ -1,12 +1,18 @@
-# 蓝色大肥鱼 · Android
+# 蓝色大肥鱼
 
 能离开应用、在手机桌面和其他普通应用上方陪伴的 Android 桌宠。应用名「蓝色大肥鱼」，包名 `com.lanse.fish`，支持 Android 9 及以上。
 
-以 [PC2005-cloud/dsh-pet 0.3.8](https://github.com/PC2005-cloud/dsh-pet/tree/v0.3.8) 的角色资源为基础；手机端为原生 Android 实现。素材、原始配置与角色版权归原作者，保留 MIT 许可证。
+基于原作者 **PC2005-cloud** 的 [dsh-pet 0.3.8](https://github.com/PC2005-cloud/dsh-pet/tree/593b9b0785f883630243ef6213542f4603ef69ad) 改版；手机端为原生 Android 实现。**代码 MIT；原版动画、提示词、源视频等素材另有禁止商用及二创署名要求**，不能把素材一概当作 MIT。详见[第三方来源与许可](THIRD_PARTY_NOTICES.md)。
+
+## 当前进度
+
+可下载版本仍为 **0.1.0**。真实手机使用反馈了左右拖动范围过窄、菜单过大、动作重复及点播跳回 App 等问题；本次先交付[现版优化方案、完整106动作目录、回退与验收](docs/0.1.1/蓝色大肥鱼_现版优化方案与验收.md)、[需求要点与结论](docs/0.1.1/需求要点与结论.md)和[给 DeepSeek 的完整实施提示词](docs/0.1.1/交给DeepSeek的完整实施提示词.md)，**尚未修改应用功能或发布修复版 APK**。源码核对含实际 REA 静态分析，见[核对记录](docs/0.1.1/源码核对记录.md)。
+
+仓库源码与 0.1.0 Release 已按用户要求公开；显示名称统一“蓝色大肥鱼”。GitHub 仓库 URL 不支持中文，因此保留原地址，不另起英文产品名。公开不等于取消素材的禁止商用与署名限制。
 
 ## 安装
 
-从本仓库的 [Releases](https://github.com/shitmof/lanse-dafeiyu/releases) 下载 `lanse-dafeiyu-0.1.0.apk`。仓库为私有，需要登录有权访问的 GitHub 账号。
+从本仓库的 [Releases](https://github.com/shitmof/lanse-dafeiyu/releases) 下载 `lanse-dafeiyu-0.1.0.apk`。旧版作为当前可用包与回退基线保留，上述已知问题尚未修复。请同时阅读 Release 附带的素材许可说明。
 
 1. 在手机安装 APK，按系统提示允许此次安装来源。
 2. 打开「蓝色大肥鱼」，点击「开始陪伴」，允许「显示在其他应用上层」。
@@ -68,7 +74,7 @@ adb shell am instrument -w com.lanse.fish.test/com.lanse.fish.FishTestRunner
 
 ## 来源
 
-- 角色资源：[dsh-pet](https://github.com/PC2005-cloud/dsh-pet)，PC2005-cloud，MIT。
+- 改版来源：[dsh-pet](https://github.com/PC2005-cloud/dsh-pet)，PC2005-cloud。代码 MIT；素材禁止商用且须保留原作者链接，详见[第三方说明](THIRD_PARTY_NOTICES.md)。
 - Android 悬浮窗：[WindowManager.LayoutParams](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#TYPE_APPLICATION_OVERLAY)。
 - 前台服务：[specialUse](https://developer.android.com/develop/background-work/services/fgs/service-types#special-use)。
 - DeepSeek：[余额接口](https://api-docs.deepseek.com/api/get-user-balance/)、[对话接口](https://api-docs.deepseek.com/api/create-chat-completion/)。

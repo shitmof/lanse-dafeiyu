@@ -2,6 +2,8 @@
 
 验收日期：2026-10-24。应用版本 0.1.0，包名 `com.lanse.fish`。
 
+后续用户真机反馈：左右拖动受透明画布限制，长按菜单过大，点播跳回App，自动动作不够丰富。本文保留0.1.0当时的检查记录，**不将这些检查视为上述问题已解决**。本轮仅形成[下一候选版方案与验收表](0.1.1/蓝色大肥鱼_现版优化方案与验收.md)，未修改APK。
+
 ## 本版对应关系
 
 | 原版能力 / 手机需求 | Android 0.1.0 |
@@ -23,7 +25,7 @@
 
 | 验证项 | 证据与结果 |
 | --- | --- |
-| 固定来源 | `PC2005-cloud/dsh-pet` v0.3.8，提交 `593b9b0785f883630243ef6213542f4603ef69ad`；对照上游目录共 106 个动画文件，保留 MIT 许可 |
+| 固定来源 | [PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet) v0.3.8，提交 `593b9b0785f883630243ef6213542f4603ef69ad`；对照上游目录共106个动画文件。代码MIT，素材另有禁止商用及署名要求，见[第三方说明](../THIRD_PARTY_NOTICES.md) |
 | 资源完整性 | 106 段、27 张表情、24,354 帧；原视频 SHA-256、转换文件 SHA-256、透明通道、逐帧解码及对应原始时长均通过 |
 | Android 设备测试 | 独立 MuMu 模拟器，Android 15 / API 35，346 项检查通过 |
 | 动画显示 | 全部 106 段由 Android ImageDecoder 解码为 AnimatedImageDrawable，有可见像素及透明背景；覆盖解码先于窗口附加的情况 |
@@ -35,11 +37,11 @@
 
 lint 警告涉及 SDK 版本更新提示、旧系统备份配置建议、触摸处理的静态可访问性检查和左右布局建议。没有把警告描述为全部消失。拖动点击路径已调用 `performClick`；非聚焦悬浮菜单的文字无法由该模拟器普通 `uiautomator dump` 提取，使用窗口验证、真实点击及截图核对。
 
-真实用户手机尚未连接，Android 9–14 和 16 尚未逐版本运行测试。实际 AI 账户及真实 DSH 服务尚未配置；HTTP 测试服务通过不代表用户账户已连通。未做多天续航、所有厂商后台策略或真实重启后的自动恢复保证。
+开发侧未连接用户真机调试；用户已安装并反馈上述体验问题。Android 9–14 和 16 尚未逐版本运行测试。实际 AI 账户及真实 DSH 服务尚未配置；HTTP 测试服务通过不代表用户账户已连通。未做多天续航、所有厂商后台策略或真实重启后的自动恢复保证。
 
 ## 可复核材料
 
-本机 `output/` 下保留 `asset-checks.json`、`device-tests.txt`、`bridge-tests.txt`、`ui-smoke.txt`、`build-release.log`、`signature-check.txt`、`SHA256SUMS.txt` 和正式 APK。它们是生成产物，不提交到 Git；公开信息的摘要在本文，正式 APK 和校验文件放私有 Release。
+本机 `output/` 下保留 `asset-checks.json`、`device-tests.txt`、`bridge-tests.txt`、`ui-smoke.txt`、`build-release.log`、`signature-check.txt`、`SHA256SUMS.txt` 和正式 APK。它们是生成产物，不提交到 Git；公开信息的摘要在本文，正式 APK 和校验文件放仓库 Release。
 
 发行证书 SHA-256 指纹：`5be09c6129ca809f1784576d76f6407a8c5949075e2d25693baacb5dff4282ee`。
 
