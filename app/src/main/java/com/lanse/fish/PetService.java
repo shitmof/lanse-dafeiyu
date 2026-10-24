@@ -4,12 +4,16 @@ import android.app.*;
 import android.content.*;
 import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
+import android.graphics.Insets;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.hardware.display.DisplayManager;
 import android.os.*;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.*;
 import android.widget.*;
 import java.util.*;
@@ -37,6 +41,7 @@ public final class PetService extends Service {
     private static final float ANCHOR_Y = 0.92f;  // canvas y of the feet
     private static final int MENU_WIDTH_DP = 156;
     private static final int MENU_ROW_DP = 40;
+    private enum Edge { NONE, LEFT, RIGHT }
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Random random = new Random();
     private final ArrayList<Pet> pets = new ArrayList<>();
@@ -50,11 +55,20 @@ public final class PetService extends Service {
     private String menuPage = "root", menuCategory = "";
     private boolean screenOn = true, destroyed = false, networkBusy = false;
     private int screenWidth, screenHeight;
+    private int insetLeft, insetTop, insetRight, insetBottom;
+    private final Rect displayBounds = new Rect();
+    private Runnable screenRefreshTask;
+    private DisplayManager displayManager;
     private long nextWhisper, nextRemote, nextBalance, nextPermissionCheck, lastBalanceAt;
+    private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
+        @Override public void onDisplayAdded(int displayId) {}
+        @Override public void onDisplayRemoved(int displayId) {}
+        @Override public void onDisplayChanged(int displayId) { scheduleScreenRefresh(); }
+    };
     private final BroadcastReceiver screenReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             screenOn = !Intent.ACTION_SCREEN_OFF.equals(i.getAction());
-            for (Pet p : pets) p.pause(!screenOn);
+            for (Pet p : pets) { p.cancelDrag(); p.pause(!screenOn); }
             if (!screenOn) { hideMenu(); hideBubble(); }
         }
     };
@@ -78,6 +92,8 @@ public final class PetService extends Service {
         try { catalog = new AnimationCatalog(this); }
         catch (Exception e) { prefs.put("last_error", "动画目录读取失败，请重新安装完整 APK"); stopSelf(); return; }
         measureScreen();
+        displayManager = (DisplayManager) getSystemService(DISPLAY_SERVICE);
+        if (displayManager != null) displayManager.registerDisplayListener(displayListener, handler);
         IntentFilter f = new IntentFilter();
         f.addAction(Intent.ACTION_SCREEN_OFF); f.addAction(Intent.ACTION_SCREEN_ON); f.addAction(Intent.ACTION_USER_PRESENT);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenReceiver, f, Context.RECEIVER_NOT_EXPORTED);
@@ -107,9 +123,62 @@ public final class PetService extends Service {
     }
 
     private void measureScreen() {
+        int oldWidth = screenWidth, oldHeight = screenHeight;
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                WindowMetrics metrics = windows.getCurrentWindowMetrics();
+                Rect bounds = metrics.getBounds();
+                displayBounds.set(bounds);
+                screenWidth = Math.max(1, bounds.width());
+                screenHeight = Math.max(1, bounds.height());
+                WindowInsets insets = metrics.getWindowInsets();
+                Insets bars = insets.getInsetsIgnoringVisibility(
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                insetLeft = bars.left; insetTop = bars.top;
+                insetRight = bars.right; insetBottom = bars.bottom;
+            } catch (RuntimeException fallback) {
+                fallbackMeasureScreen();
+            }
+        } else {
+            fallbackMeasureScreen();
+        }
+        edgeLog("screen changed=" + (oldWidth != screenWidth || oldHeight != screenHeight)
+            + " size=" + screenWidth + "x" + screenHeight
+            + " bounds=" + displayBounds + " insets=" + insetLeft + "," + insetTop + "," + insetRight + "," + insetBottom);
+    }
+
+    private void fallbackMeasureScreen() {
         Point p = new Point();
         windows.getDefaultDisplay().getSize(p);
-        screenWidth = p.x; screenHeight = p.y;
+        screenWidth = Math.max(1, p.x);
+        screenHeight = Math.max(1, p.y);
+        displayBounds.set(0, 0, screenWidth, screenHeight);
+        insetLeft = insetTop = insetRight = insetBottom = 0;
+    }
+
+    private boolean debugBuild() {
+        return (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+    }
+
+    private void edgeLog(String message) {
+        if (debugBuild() && prefs != null && prefs.flag("debug_log", false)) {
+            Log.d("FishEdge", message);
+        }
+    }
+
+    private void scheduleScreenRefresh() {
+        if (destroyed) return;
+        if (screenRefreshTask != null) handler.removeCallbacks(screenRefreshTask);
+        screenRefreshTask = () -> {
+            screenRefreshTask = null;
+            int oldWidth = screenWidth, oldHeight = screenHeight;
+            measureScreen();
+            if (oldWidth != screenWidth || oldHeight != screenHeight) {
+                for (Pet p : pets) p.save();
+                rebuild(false);
+            }
+        };
+        handler.postDelayed(screenRefreshTask, 250);
     }
 
     private int dp(float n) { return Math.round(n * getResources().getDisplayMetrics().density); }
@@ -192,12 +261,20 @@ public final class PetService extends Service {
         boolean dragging, moved, longPressed, menuOpen, manualPlay, workHold;
         float downX, downY, startX, startY, vx, vy;
         long lastChange;
-        VelocityTracker velocity;
+        static final int VEL_SAMPLES = 6;
+        final float[] velX = new float[VEL_SAMPLES], velY = new float[VEL_SAMPLES];
+        final long[] velT = new long[VEL_SAMPLES];
+        int velCount;
+        WindowManager.LayoutParams dragLp;
+        boolean dragExpanded;
+        float dragBaseX, dragBaseY;
+        Runnable dragSafety;
         AnimationCatalog.Motion motion;
-        final int canvasW, canvasH, pad;
+        final int canvasW, canvasH, pad, edgeEps;
         final ArrayDeque<Motion> bag = new ArrayDeque<>();
         final ArrayDeque<String> recent = new ArrayDeque<>();
         String workState;
+        Edge edge = Edge.NONE;
         Runnable autoTask;
         final Runnable hold = () -> { if (!moved) { longPressed = true; menu(this); } };
 
@@ -207,6 +284,7 @@ public final class PetService extends Service {
             canvasW = Math.max(dp(80), Math.min(screenWidth, dp(prefs.number("size", 260))));
             canvasH = Math.round(canvasW * 360f / 640f);
             pad = Math.max(1, dp(2));
+            edgeEps = Math.max(1, dp(1));
             motion = catalog.match("吃白饭");
             int[] win = windowSize(motion);
             lp = params(win[0], win[1]);
@@ -224,16 +302,54 @@ public final class PetService extends Service {
             lp.x = Math.round(ax - (ANCHOR_X - motion.x0()) * canvasW);
             lp.y = Math.round(ay - (ANCHOR_Y - motion.y0()) * canvasH);
             clamp();
+            try { edge = Edge.valueOf(prefs.text("edge" + i, Edge.NONE.name())); }
+            catch (IllegalArgumentException ignored) { edge = Edge.NONE; }
+            if (edge != Edge.NONE) snapToEdge();
+            clamp();
+            refreshEdge();
             view.setAlpha(prefs.number("opacity", 100) / 100f);
             view.setCrop(motion, canvasW, canvasH, pad);
             view.setOnClickListener(v -> tap());
             view.setOnTouchListener((v, e) -> touch(e));
+            logPet("init");
         }
 
         int[] windowSize(AnimationCatalog.Motion m) {
             int w = Math.max(dp(48), Math.round((m.x1() - m.x0()) * canvasW) + pad * 2);
             int h = Math.max(dp(48), Math.round((m.y1() - m.y0()) * canvasH) + pad * 2);
             return new int[]{Math.min(w, screenWidth), Math.min(h, screenHeight)};
+        }
+
+        int maxX() { return Math.max(0, screenWidth - lp.width); }
+
+        void snapToEdge() {
+            if (edge == Edge.LEFT) lp.x = 0;
+            else if (edge == Edge.RIGHT) lp.x = maxX();
+        }
+
+        void refreshEdge() {
+            int max = maxX();
+            if (max <= 0) return; // a full-width clip covers both edges; keep the previous intent
+            if (lp.x <= edgeEps) edge = Edge.LEFT;
+            else if (lp.x >= max - edgeEps) edge = Edge.RIGHT;
+            else edge = Edge.NONE;
+        }
+
+        void logPet(String event) {
+            if (!debugBuild() || !prefs.flag("debug_log", false)) return;
+            int[] loc = new int[2];
+            view.getLocationOnScreen(loc);
+            Motion m = motion;
+            Log.d("FishEdge", "pet=" + index + " ev=" + event
+                + " motion=" + (m == null ? "-" : m.id() + "/" + m.name())
+                + " cat=" + (m == null ? "-" : m.category())
+                + " visual=" + (m == null ? "-" : m.x0() + "," + m.y0() + "," + m.x1() + "," + m.y1())
+                + " screen=" + screenWidth + "x" + screenHeight
+                + " bounds=" + displayBounds + " insets=" + insetLeft + "," + insetTop + "," + insetRight + "," + insetBottom
+                + " lp=" + lp.x + "," + lp.y + "," + lp.width + "x" + lp.height
+                + " view=" + loc[0] + "," + loc[1] + "," + view.getWidth() + "x" + view.getHeight()
+                + " edge=" + edge + " vx=" + vx + " vy=" + vy
+                + " anchor=" + anchorX() + "," + anchorY());
         }
 
         float anchorX() {
@@ -259,11 +375,17 @@ public final class PetService extends Service {
             if (m == null) return;
             if (dragging) return;
             cancelAuto();
+            Edge beforeEdge = edge;
             float ax = anchorX(), ay = anchorY();
             int[] win = windowSize(m);
             lp.width = win[0]; lp.height = win[1];
-            lp.x = Math.round(ax - (ANCHOR_X - m.x0()) * canvasW);
+            if (beforeEdge == Edge.LEFT) lp.x = 0;
+            else if (beforeEdge == Edge.RIGHT) lp.x = Math.max(0, screenWidth - lp.width);
+            else lp.x = Math.round(ax - (ANCHOR_X - m.x0()) * canvasW);
             lp.y = Math.round(ay - (ANCHOR_Y - m.y0()) * canvasH);
+            clamp();
+            refreshEdge();
+            if (edge != Edge.NONE) snapToEdge();
             clamp();
             update();
             view.setCrop(m, canvasW, canvasH, pad);
@@ -271,15 +393,23 @@ public final class PetService extends Service {
             manualPlay = manual;
             lastChange = SystemClock.uptimeMillis();
             if ("移动".equals(m.category()) && prefs.flag("wander", true)) {
-                vx = random.nextBoolean() ? 2.2f : -2.2f;
+                // A pet the user deliberately parked on an edge must not walk away
+                // just because the next random clip is a locomotion clip. Walking is
+                // enabled again as soon as the user drags it in from the edge.
+                if (edge == Edge.NONE) {
+                    vx = random.nextBoolean() ? 2.2f : -2.2f;
+                } else {
+                    vx = 0;
+                }
                 vy = 0;
-                view.setScaleX(vx < 0 ? 1 : -1);
+                view.setScaleX(vx == 0 ? 1 : (vx < 0 ? 1 : -1));
             } else {
                 vx = vy = 0;
                 view.setScaleX(1);
             }
             final int generation = ++playGeneration;
             view.play(m, () -> onEnd(generation));
+            logPet("play " + m.name() + " beforeEdge=" + beforeEdge);
         }
 
         void onEnd(int generation) {
@@ -364,6 +494,104 @@ public final class PetService extends Service {
         void save() {
             prefs.put("ax" + index, Math.round(anchorX() * 1000f / Math.max(1, screenWidth)));
             prefs.put("ay" + index, Math.round(anchorY() * 1000f / Math.max(1, screenHeight)));
+            prefs.put("edge" + index, edge.name());
+        }
+
+        void resetVelocity() { velCount = 0; }
+
+        void addVelocitySample(float rawX, float rawY, long eventTime) {
+            if (velCount == VEL_SAMPLES) {
+                System.arraycopy(velX, 1, velX, 0, VEL_SAMPLES - 1);
+                System.arraycopy(velY, 1, velY, 0, VEL_SAMPLES - 1);
+                System.arraycopy(velT, 1, velT, 0, VEL_SAMPLES - 1);
+                velCount--;
+            }
+            velX[velCount] = rawX;
+            velY[velCount] = rawY;
+            velT[velCount] = eventTime;
+            velCount++;
+        }
+
+        /**
+         * VelocityTracker computes in view-local coordinates. During a drag the pet
+         * itself is translated under the finger, so local dx can even have the
+         * opposite sign from the finger's screen movement. Use raw screen samples.
+         */
+        void computeRawVelocity() {
+            vx = vy = 0;
+            if (velCount < 2) return;
+            int last = velCount - 1;
+            int first = last;
+            while (first > 0 && velT[last] - velT[first - 1] <= 140) first--;
+            float dt = (velT[last] - velT[first]) / 1000f;
+            if (dt <= 0.001f) return;
+            vx = Math.max(-45, Math.min(45, ((velX[last] - velX[first]) / dt) / 25f));
+            vy = Math.max(-45, Math.min(45, ((velY[last] - velY[first]) / dt) / 25f));
+        }
+
+        /**
+         * While a finger is down, temporarily make the window full-screen and move
+         * only the view content. A small cropped window follows the finger one frame
+         * late; near an edge the pointer can leave that small window and Android
+         * cancels the drag, which is the intermittent "stops short of the edge" bug.
+         * The full-screen carrier window keeps the pointer captured for the whole
+         * gesture. It is restored to the cropped size on UP/CANCEL.
+         */
+        void expandForDrag() {
+            if (prefs.flag("fixed", false)) return;
+            dragBaseX = lp.x;
+            dragBaseY = lp.y;
+            try {
+                dragLp = params(screenWidth, screenHeight);
+                dragLp.x = 0;
+                dragLp.y = 0;
+                dragLp.width = screenWidth;
+                dragLp.height = screenHeight;
+                windows.updateViewLayout(view, dragLp);
+                dragExpanded = true;
+                view.setTranslationX(dragBaseX);
+                view.setTranslationY(dragBaseY);
+                if (dragSafety != null) handler.removeCallbacks(dragSafety);
+                dragSafety = () -> {
+                    dragSafety = null;
+                    if (dragExpanded) {
+                        dragging = false;
+                        restoreAfterDrag(dragBaseX, dragBaseY);
+                    }
+                };
+                handler.postDelayed(dragSafety, 15_000);
+                logPet("drag expand base=" + dragBaseX + "," + dragBaseY);
+            } catch (RuntimeException e) {
+                dragExpanded = false;
+                dragLp = null;
+                logPet("drag expand failed=" + e.getClass().getSimpleName());
+            }
+        }
+
+        void restoreAfterDrag(float finalX, float finalY) {
+            if (!dragExpanded) return;
+            if (dragSafety != null) { handler.removeCallbacks(dragSafety); dragSafety = null; }
+            int[] win = windowSize(motion);
+            view.setTranslationX(0);
+            view.setTranslationY(0);
+            lp.width = win[0];
+            lp.height = win[1];
+            lp.x = Math.round(finalX);
+            lp.y = Math.round(finalY);
+            clamp();
+            refreshEdge();
+            update();
+            dragExpanded = false;
+            dragLp = null;
+            logPet("drag restore final=" + lp.x + "," + lp.y + " edge=" + edge);
+        }
+
+        void cancelDrag() {
+            if (dragSafety != null) { handler.removeCallbacks(dragSafety); dragSafety = null; }
+            if (dragExpanded) {
+                dragging = false;
+                restoreAfterDrag(dragBaseX, dragBaseY);
+            }
         }
 
         boolean touch(MotionEvent e) {
@@ -373,36 +601,62 @@ public final class PetService extends Service {
                     vx = vy = 0; dragging = true; moved = longPressed = false;
                     downX = e.getRawX(); downY = e.getRawY();
                     startX = lp.x; startY = lp.y;
-                    velocity = VelocityTracker.obtain(); velocity.addMovement(e);
+                    resetVelocity();
+                    addVelocitySample(e.getRawX(), e.getRawY(), e.getEventTime());
                     handler.postDelayed(hold, 550);
+                    logPet("down raw=" + e.getRawX() + "," + e.getRawY());
                     return true;
                 }
                 case MotionEvent.ACTION_MOVE -> {
-                    if (velocity != null) velocity.addMovement(e);
+                    addVelocitySample(e.getRawX(), e.getRawY(), e.getEventTime());
                     float dx = e.getRawX() - downX, dy = e.getRawY() - downY;
                     if (!moved && Math.hypot(dx, dy) > dp(8)) { moved = true; handler.removeCallbacks(hold); hideMenu(); }
                     if (moved && !prefs.flag("fixed", false)) {
-                        lp.x = Math.round(startX + dx); lp.y = Math.round(startY + dy);
-                        clamp(); update();
+                        if (!dragExpanded) expandForDrag();
+                        if (dragExpanded) {
+                            view.setTranslationX(dragBaseX + dx);
+                            view.setTranslationY(dragBaseY + dy);
+                        } else {
+                            Edge previousEdge = edge;
+                            lp.x = Math.round(startX + dx); lp.y = Math.round(startY + dy);
+                            clamp(); refreshEdge(); update();
+                            if (previousEdge != edge) logPet("drag edge=" + edge + " raw=" + e.getRawX() + "," + e.getRawY());
+                        }
                     }
                     return true;
                 }
                 case MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     handler.removeCallbacks(hold); dragging = false;
+                    addVelocitySample(e.getRawX(), e.getRawY(), e.getEventTime());
+                    float finalX = startX + (e.getRawX() - downX);
+                    float finalY = startY + (e.getRawY() - downY);
+                    if (!moved) { finalX = startX; finalY = startY; }
+                    if (dragExpanded) {
+                        restoreAfterDrag(finalX, finalY);
+                    } else if (moved && !prefs.flag("fixed", false)) {
+                        // Fallback when the full-screen drag carrier could not be installed.
+                        lp.x = Math.round(finalX); lp.y = Math.round(finalY);
+                        clamp(); refreshEdge(); update();
+                    }
+                    refreshEdge();
                     if (e.getActionMasked() == MotionEvent.ACTION_UP) {
                         if (moved) {
-                            if (velocity != null && prefs.flag("physics", true) && !prefs.flag("fixed", false)) {
-                                velocity.computeCurrentVelocity(1000);
-                                vx = Math.max(-45, Math.min(45, velocity.getXVelocity() / 25));
-                                vy = Math.max(-45, Math.min(45, velocity.getYVelocity() / 25));
+                            if (prefs.flag("physics", true) && !prefs.flag("fixed", false)) {
+                                computeRawVelocity();
                             }
+                            // A fling that points out of the display must not bounce the pet back inward.
+                            if (edge == Edge.LEFT && vx < 0) vx = 0;
+                            if (edge == Edge.RIGHT && vx > 0) vx = 0;
                             save();
                             manualPlay = false;
                             if (prefs.flag("auto_play", true)) scheduleNext();
                             else vx = vy = 0;
                         } else if (!longPressed) view.performClick();
+                        logPet("up moved=" + moved + " raw=" + e.getRawX() + "," + e.getRawY() + " edge=" + edge + " velocity=" + vx + "," + vy);
+                    } else {
+                        if (moved) save();
+                        logPet("cancel raw=" + e.getRawX() + "," + e.getRawY() + " edge=" + edge);
                     }
-                    if (velocity != null) { velocity.recycle(); velocity = null; }
                     return true;
                 }
             }
@@ -419,10 +673,18 @@ public final class PetService extends Service {
         void step() {
             if (dragging || prefs.flag("fixed", false)) return;
             if (Math.abs(vx) + Math.abs(vy) < 0.12f) { vx = vy = 0; return; }
+            Edge previousEdge = edge;
+            int max = maxX();
+            int maxY = Math.max(0, screenHeight - lp.height);
+            boolean hit = false;
             lp.x += Math.round(vx); lp.y += Math.round(vy);
-            if (lp.x < 0 || lp.x > screenWidth - lp.width) vx = -vx * 0.65f;
-            if (lp.y < 0 || lp.y > screenHeight - lp.height) vy = -vy * 0.65f;
-            clamp(); update();
+            if (lp.x < 0) { lp.x = 0; if (vx < 0) vx = 0; hit = true; }
+            else if (lp.x > max) { lp.x = max; if (vx > 0) vx = 0; hit = true; }
+            if (lp.y < 0) { lp.y = 0; if (vy < 0) vy = 0; hit = true; }
+            else if (lp.y > maxY) { lp.y = maxY; if (vy > 0) vy = 0; hit = true; }
+            refreshEdge();
+            update();
+            if (hit || previousEdge != edge) logPet("step hit=" + hit + " edge=" + edge);
             if (Math.abs(vx) + Math.abs(vy) < 0.25f) { vx = vy = 0; save(); }
         }
     }
@@ -717,14 +979,17 @@ public final class PetService extends Service {
 
     @Override public void onConfigurationChanged(Configuration c) {
         super.onConfigurationChanged(c);
-        for (Pet p : pets) p.save();
-        measureScreen();
-        rebuild(false);
+        for (Pet p : pets) { p.cancelDrag(); p.save(); }
+        edgeLog("configuration changed " + c.orientation + " " + c.screenWidthDp + "x" + c.screenHeightDp);
+        scheduleScreenRefresh();
     }
 
     @Override public void onDestroy() {
         destroyed = true; running = false;
         handler.removeCallbacksAndMessages(null);
+        if (displayManager != null) {
+            try { displayManager.unregisterDisplayListener(displayListener); } catch (RuntimeException ignored) {}
+        }
         network.shutdownNow();
         hideMenu(); hideBubble();
         for (Pet p : pets) { p.cancelAuto(); p.save(); remove(p.view); }
