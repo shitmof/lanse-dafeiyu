@@ -7,12 +7,40 @@ Requires ffmpeg with libvpx.
 """
 from pathlib import Path
 import concurrent.futures, hashlib, json, os, re, shutil, subprocess, time, urllib.request
+from PIL import Image, ImageSequence
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / 'app/src/main/assets'
 SOURCE = ROOT / 'research/upstream-assets'
 UPSTREAM_COMMIT = '593b9b0785f883630243ef6213542f4603ef69ad'
 RAW = f'https://raw.githubusercontent.com/PC2005-cloud/dsh-pet/{UPSTREAM_COMMIT}/'
+CANVAS_W, CANVAS_H = 480, 270
+VISUAL_ALPHA = 8
+
+
+def visual_bounds(webp):
+    """Union of visible pixels across every frame, normalized to the 480x270 canvas.
+
+    This is display metadata only: the full canvas is still packaged and drawn; the
+    Android window can crop transparent margins while keeping the body anchored.
+    """
+    image = Image.open(webp)
+    x0 = y0 = 10_000
+    x1 = y1 = -1
+    for frame in ImageSequence.Iterator(image):
+        alpha = np.asarray(frame.convert('RGBA').getchannel('A'))
+        ys, xs = np.where(alpha > VISUAL_ALPHA)
+        if len(xs) == 0:
+            continue
+        x0 = min(x0, int(xs.min()))
+        y0 = min(y0, int(ys.min()))
+        x1 = max(x1, int(xs.max()) + 1)
+        y1 = max(y1, int(ys.max()) + 1)
+    if x1 <= x0 or y1 <= y0:
+        return [0.0, 0.0, 1.0, 1.0]
+    return [round(x0 / CANVAS_W, 4), round(y0 / CANVAS_H, 4),
+            round(x1 / CANVAS_W, 4), round(y1 / CANVAS_H, 4)]
 
 def fetch(relative, dest):
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -41,14 +69,17 @@ def main():
     (ASSETS/'original-config.json').write_text(json.dumps(config,ensure_ascii=False,indent=2),'utf-8')
     names={}
     a=config['animations']
-    for key,cat in [('idle','日常'),('turn','日常'),('drag','互动'),('clicks','互动')]:
+    for key,cat in [('idle','待机'),('turn','转向'),('drag','拖拽'),('clicks','点击回应')]:
         for name in a[key]: names[name]=cat
     for row in a['moves']['actions']: names[row['name']]='移动'
     for row in a['categories']:
-        for name in row['actions']:names[name]={'小动作':'日常','吃什么':'吃饭'}.get(row['id'],row['id'])
+        # Keep the original 13 classes. The old UI merged 小动作 into 日常 and
+        # 吃什么 into 吃饭, which made the floating menu's categories incomplete.
+        for name in row['actions']: names[name]=row['id']
     for event,values in a['events'].items():
+        category={'balance':'余额档位','whisper':'碎碎念','workStatus':'工作状态'}[event]
         for value in values:
-            for name in value if isinstance(value,list) else [value]: names[name]={'balance':'余额','whisper':'碎碎念','workStatus':'工作'}[event]
+            for name in value if isinstance(value,list) else [value]: names[name]=category
     # All entries in the upstream animation pools are packaged, including event-only poses.
     print(f'Preparing {len(names)} original animations',flush=True)
     def job(item):
@@ -67,6 +98,7 @@ def main():
             if proc.returncode: raise RuntimeError(proc.stderr.decode(errors='replace'))
             temp.replace(dest)
         result={'id':ident,'name':name,'category':cat,'file':'animations/'+dest.name,
+                'visual':visual_bounds(dest),
                 'source_sha256':hashlib.sha256(src.read_bytes()).hexdigest(),'sha256':hashlib.sha256(dest.read_bytes()).hexdigest()}
         print('Ready: '+name,flush=True); return result
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool: rows=list(pool.map(job,names.items()))

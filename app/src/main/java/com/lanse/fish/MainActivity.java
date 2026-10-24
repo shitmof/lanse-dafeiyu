@@ -175,8 +175,15 @@ public final class MainActivity extends Activity {
         title(p,"MAKE IT YOURS · 04","你的陪伴方式","大小、性格和作息，都听你的。");
         section(p,"屏幕上的它");slider(p,"size","宠物画布宽度 · dp",120,420,260);slider(p,"opacity","不透明度 · %",30,100,100);slider(p,"count","宠物数量",1,3,1);
         toggle(p,"wander","自由走动",true);toggle(p,"physics","拖动后甩动与回弹",true);toggle(p,"fixed","固定位置（关闭拖动和走动）",false);toggle(p,"schedule","跟随时间吃饭、休息",true);toggle(p,"whisper","偶尔碎碎念",true);slider(p,"whisper_minutes","碎碎念间隔 · 分钟",1,30,5);
+        toggle(p,"auto_play","自动播放动作",true);slider(p,"auto_interval","自动切换最短间隔 · 秒",5,300,15);
         toggle(p,"memes","对话显示原版表情包",true);toggle(p,"autostart","重启后恢复陪伴",false);
         gap(p,8);fullButton(p,"后台电池设置",false,this::batterySettings);gap(p,8);p.addView(text("如需长期陪伴，请在手机系统里允许后台运行；部分品牌还需开启自启动。",12,MUTED));
+        section(p,"本地陪伴状态");
+        p.addView(text("不连接 DSH 也能让它在手机上摆出工作姿态；这是本地动画，不调用模型，也不代表真实任务进度。",12,MUTED));gap(p,10);
+        String[][] works={{"思考","thinking"},{"工作","working"},{"整理","result"},{"等待","waiting"},{"成功","success"},{"出错","error"}};
+        LinearLayout workRow=row();workRow.setGravity(Gravity.START);
+        for(String[] w:works){Button b=button(w[0],false,()->{if(PetService.running)PetService.command(this,PetService.WORK,w[1]);else toast("先点「开始陪伴」再用本地工作姿态。");});LinearLayout.LayoutParams wp=new LinearLayout.LayoutParams(0,dp(44),1);wp.rightMargin=dp(6);workRow.addView(b,wp);}
+        p.addView(workRow);gap(p,8);fullButton(p,"恢复自动动作",false,()->{if(PetService.running)PetService.command(this,PetService.WORK,"auto");});
         section(p,"名字与性格");EditText name=field(p,"名字","蓝色大肥鱼",prefs.text("pet_name","蓝色大肥鱼"),false);EditText persona=field(p,"人设","你想让它怎么说话？",prefs.persona(),false);persona.setMinLines(3);
         slider(p,"memory_rounds","随请求携带的对话轮数",0,50,5);
         section(p,"对话连接");String[] modes={"offline","ai","dsh"};String mode=prefs.text("mode","offline");Spinner modeSelect=spinner(p,new String[]{"离线陪伴 · 无需密钥","独立 AI · OpenAI 兼容接口","DSH · 使用电脑端服务"},Arrays.asList(modes).indexOf(mode));
@@ -206,9 +213,9 @@ public final class MainActivity extends Activity {
         section(p,"本机数据");fullButton(p,"导出聊天记录",false,()->startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json").putExtra(Intent.EXTRA_TITLE,"蓝色大肥鱼-聊天记录.json"),40));gap(p,10);
         fullButton(p,"清空本机聊天记录",false,()->new AlertDialog.Builder(this).setTitle("清空聊天记录？").setMessage("仅删除手机内的记录，不会删除 DSH 电脑端记录。").setNegativeButton("保留",null).setPositiveButton("清空",(d,w)->{prefs.put("history","[]");toast("本机聊天记录已清空。");}).show());gap(p,10);
         fullButton(p,"移除已存密钥与令牌",false,()->new AlertDialog.Builder(this).setTitle("移除连接凭据？").setNegativeButton("取消",null).setPositiveButton("移除",(d,w)->{try{prefs.secret("api_key","");prefs.secret("dsh_token","");toast("已移除。");}catch(Exception e){toast("未能移除，请重试。");}}).show());
-        section(p,"关于这只鱼");p.addView(text("蓝色大肥鱼 0.1.0\nAndroid 9+ · 基于 dsh-pet 0.3.8\n原作者 PC2005-cloud · MIT\n完整动画 "+catalog.motions.size()+" 段，随 APK 离线提供。",13,MUTED));gap(p,10);
+        section(p,"关于这只鱼");p.addView(text("蓝色大肥鱼 0.1.1\nAndroid 9+ · 基于 dsh-pet 0.3.8\n原作者 PC2005-cloud · 代码 MIT · 素材禁止商用\n完整动画 "+catalog.motions.size()+" 段，随 APK 离线提供。",13,MUTED));gap(p,10);
         fullButton(p,"开源说明与隐私",false,()->{
-            String license;try{license=AnimationCatalog.read(this,"UPSTREAM-LICENSE.txt");}catch(IOException e){license="MIT · PC2005-cloud";}
+            String license;try{license=AnimationCatalog.read(this,"THIRD_PARTY_NOTICES.txt");}catch(IOException e){try{license=AnimationCatalog.read(this,"UPSTREAM-LICENSE.txt");}catch(IOException e2){license="MIT · PC2005-cloud";}}
             new AlertDialog.Builder(this).setTitle("开源与隐私").setMessage("素材来源：https://github.com/PC2005-cloud/dsh-pet\n\n不读取屏幕、通讯录或通知内容，不申请无障碍权限，不含广告与统计 SDK。聊天只在你选择联网模式后发送至你配置的服务。AI 自动碎碎念需单独开启。\n\n系统安全页面可能隐藏悬浮窗。桌面端插件管理与任意电脑自动化不属于 Android 本地能力。\n\n"+license).setPositiveButton("知道了",null).show();
         });
     }
