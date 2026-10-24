@@ -102,6 +102,8 @@ adb logcat -s FishEdge:D
 - 本机路径：`output/candidate-0.1.1-test.2/blue-fat-fish-0.1.1-test.2-debug.apk`；262,569,582 字节；SHA-256 `78cc37780fc3da93e2bd97dd6c9d9218259aebc5e29e32fa6d700d187752c292`；debug 证书 SHA-256 `1f6a95c4786f85d1f39deddbf61d0bcc56beb2d9a59f1a3ca43aaf70b8a8391a`。
 - 这是 **debug 签名**，不能覆盖 0.1.0/0.1.1-test.1；测试前需使用测试机或卸载旧测试包。正式同签名包仍需原发行 keystore。
 - 不覆盖 `v0.1.0`、不覆盖 `v0.1.1-test.1`；不向 `main` 推送未验收更改。
+- GitHub 测试预发布：https://github.com/shitmof/lanse-dafeiyu/releases/tag/v0.1.1-test.2
+- 分支：`deepseek/0.1.1-edge-clamp`。
 
 ## 7. 已知边界与后续
 
