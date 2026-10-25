@@ -68,7 +68,7 @@ public final class PetService extends Service {
     private final BroadcastReceiver screenReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             screenOn = !Intent.ACTION_SCREEN_OFF.equals(i.getAction());
-            for (Pet p : pets) { p.cancelDrag(); p.pause(!screenOn); }
+            for (Pet p : pets) p.pause(!screenOn);
             if (!screenOn) { hideMenu(); hideBubble(); }
         }
     };
@@ -261,14 +261,12 @@ public final class PetService extends Service {
         boolean dragging, moved, longPressed, menuOpen, manualPlay, workHold;
         float downX, downY, startX, startY, vx, vy;
         long lastChange;
+        long walkUntil;
         static final int VEL_SAMPLES = 6;
         final float[] velX = new float[VEL_SAMPLES], velY = new float[VEL_SAMPLES];
         final long[] velT = new long[VEL_SAMPLES];
         int velCount;
-        WindowManager.LayoutParams dragLp;
-        boolean dragExpanded;
-        float dragBaseX, dragBaseY;
-        Runnable dragSafety;
+        boolean interruptedEnd;
         AnimationCatalog.Motion motion;
         final int canvasW, canvasH, pad, edgeEps;
         final ArrayDeque<Motion> bag = new ArrayDeque<>();
@@ -372,8 +370,12 @@ public final class PetService extends Service {
         }
 
         void play(AnimationCatalog.Motion m, boolean manual, boolean initial) {
+            play(m, manual, initial, false);
+        }
+
+        void play(AnimationCatalog.Motion m, boolean manual, boolean initial, boolean allowWhileDragging) {
             if (m == null) return;
-            if (dragging) return;
+            if (dragging && !allowWhileDragging) return;
             cancelAuto();
             Edge beforeEdge = edge;
             float ax = anchorX(), ay = anchorY();
@@ -398,13 +400,16 @@ public final class PetService extends Service {
                 // enabled again as soon as the user drags it in from the edge.
                 if (edge == Edge.NONE) {
                     vx = random.nextBoolean() ? 2.2f : -2.2f;
+                    walkUntil = SystemClock.uptimeMillis() + 4500;
                 } else {
                     vx = 0;
+                    walkUntil = 0;
                 }
                 vy = 0;
                 view.setScaleX(vx == 0 ? 1 : (vx < 0 ? 1 : -1));
             } else {
                 vx = vy = 0;
+                walkUntil = 0;
                 view.setScaleX(1);
             }
             final int generation = ++playGeneration;
@@ -412,9 +417,13 @@ public final class PetService extends Service {
             logPet("play " + m.name() + " beforeEdge=" + beforeEdge);
         }
 
+        void playWhileDragging(AnimationCatalog.Motion m) {
+            play(m, true, false, true);
+        }
+
         void onEnd(int generation) {
             if (destroyed || generation != playGeneration) return;
-            if (dragging) return;
+            if (dragging) { interruptedEnd = true; return; }
             if (workHold && workState != null) {
                 handler.postDelayed(() -> { if (!destroyed && workHold) play(catalog.workMotion(workState), true, false); }, 250);
                 return;
@@ -529,80 +538,18 @@ public final class PetService extends Service {
             vy = Math.max(-45, Math.min(45, ((velY[last] - velY[first]) / dt) / 25f));
         }
 
-        /**
-         * While a finger is down, temporarily make the window full-screen and move
-         * only the view content. A small cropped window follows the finger one frame
-         * late; near an edge the pointer can leave that small window and Android
-         * cancels the drag, which is the intermittent "stops short of the edge" bug.
-         * The full-screen carrier window keeps the pointer captured for the whole
-         * gesture. It is restored to the cropped size on UP/CANCEL.
-         */
-        void expandForDrag() {
-            if (prefs.flag("fixed", false)) return;
-            dragBaseX = lp.x;
-            dragBaseY = lp.y;
-            try {
-                dragLp = params(screenWidth, screenHeight);
-                dragLp.x = 0;
-                dragLp.y = 0;
-                dragLp.width = screenWidth;
-                dragLp.height = screenHeight;
-                windows.updateViewLayout(view, dragLp);
-                dragExpanded = true;
-                view.setTranslationX(dragBaseX);
-                view.setTranslationY(dragBaseY);
-                if (dragSafety != null) handler.removeCallbacks(dragSafety);
-                dragSafety = () -> {
-                    dragSafety = null;
-                    if (dragExpanded) {
-                        dragging = false;
-                        restoreAfterDrag(dragBaseX, dragBaseY);
-                    }
-                };
-                handler.postDelayed(dragSafety, 15_000);
-                logPet("drag expand base=" + dragBaseX + "," + dragBaseY);
-            } catch (RuntimeException e) {
-                dragExpanded = false;
-                dragLp = null;
-                logPet("drag expand failed=" + e.getClass().getSimpleName());
-            }
-        }
-
-        void restoreAfterDrag(float finalX, float finalY) {
-            if (!dragExpanded) return;
-            if (dragSafety != null) { handler.removeCallbacks(dragSafety); dragSafety = null; }
-            int[] win = windowSize(motion);
-            view.setTranslationX(0);
-            view.setTranslationY(0);
-            lp.width = win[0];
-            lp.height = win[1];
-            lp.x = Math.round(finalX);
-            lp.y = Math.round(finalY);
-            clamp();
-            refreshEdge();
-            update();
-            dragExpanded = false;
-            dragLp = null;
-            logPet("drag restore final=" + lp.x + "," + lp.y + " edge=" + edge);
-        }
-
-        void cancelDrag() {
-            if (dragSafety != null) { handler.removeCallbacks(dragSafety); dragSafety = null; }
-            if (dragExpanded) {
-                dragging = false;
-                restoreAfterDrag(dragBaseX, dragBaseY);
-            }
-        }
-
         boolean touch(MotionEvent e) {
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN -> {
                     hideMenu(); hideBubble(); cancelAuto();
-                    vx = vy = 0; dragging = true; moved = longPressed = false;
+                    vx = vy = 0; dragging = true; moved = longPressed = false; interruptedEnd = false;
+                    walkUntil = 0;
                     downX = e.getRawX(); downY = e.getRawY();
                     startX = lp.x; startY = lp.y;
                     resetVelocity();
                     addVelocitySample(e.getRawX(), e.getRawY(), e.getEventTime());
+                    view.animate().cancel();
+                    view.animate().scaleY(0.92f).setDuration(70).start();
                     handler.postDelayed(hold, 550);
                     logPet("down raw=" + e.getRawX() + "," + e.getRawY());
                     return true;
@@ -610,18 +557,15 @@ public final class PetService extends Service {
                 case MotionEvent.ACTION_MOVE -> {
                     addVelocitySample(e.getRawX(), e.getRawY(), e.getEventTime());
                     float dx = e.getRawX() - downX, dy = e.getRawY() - downY;
-                    if (!moved && Math.hypot(dx, dy) > dp(8)) { moved = true; handler.removeCallbacks(hold); hideMenu(); }
+                    if (!moved && Math.hypot(dx, dy) > dp(8)) {
+                        moved = true; handler.removeCallbacks(hold); hideMenu();
+                        // Restore the 0.1.0 drag pickup feedback; it is a visual
+                        // clip, not permission to change the drag position.
+                        playWhileDragging(catalog.match("被鼠标拖拽悬空反馈"));
+                    }
                     if (moved && !prefs.flag("fixed", false)) {
-                        if (!dragExpanded) expandForDrag();
-                        if (dragExpanded) {
-                            view.setTranslationX(dragBaseX + dx);
-                            view.setTranslationY(dragBaseY + dy);
-                        } else {
-                            Edge previousEdge = edge;
-                            lp.x = Math.round(startX + dx); lp.y = Math.round(startY + dy);
-                            clamp(); refreshEdge(); update();
-                            if (previousEdge != edge) logPet("drag edge=" + edge + " raw=" + e.getRawX() + "," + e.getRawY());
-                        }
+                        lp.x = Math.round(startX + dx); lp.y = Math.round(startY + dy);
+                        clamp(); refreshEdge(); update();
                     }
                     return true;
                 }
@@ -631,37 +575,56 @@ public final class PetService extends Service {
                     float finalX = startX + (e.getRawX() - downX);
                     float finalY = startY + (e.getRawY() - downY);
                     if (!moved) { finalX = startX; finalY = startY; }
-                    if (dragExpanded) {
-                        restoreAfterDrag(finalX, finalY);
-                    } else if (moved && !prefs.flag("fixed", false)) {
-                        // Fallback when the full-screen drag carrier could not be installed.
+                    if (moved && !prefs.flag("fixed", false)) {
                         lp.x = Math.round(finalX); lp.y = Math.round(finalY);
                         clamp(); refreshEdge(); update();
                     }
-                    refreshEdge();
+                    view.animate().cancel();
+                    view.animate().scaleY(1.05f).setDuration(80).withEndAction(
+                        () -> view.animate().scaleY(1f).setDuration(100).start()).start();
                     if (e.getActionMasked() == MotionEvent.ACTION_UP) {
                         if (moved) {
-                            if (prefs.flag("physics", true) && !prefs.flag("fixed", false)) {
-                                computeRawVelocity();
-                            }
-                            // A fling that points out of the display must not bounce the pet back inward.
+                            if (prefs.flag("physics", true) && !prefs.flag("fixed", false)) computeRawVelocity();
                             if (edge == Edge.LEFT && vx < 0) vx = 0;
                             if (edge == Edge.RIGHT && vx > 0) vx = 0;
+                            final float flingX = vx, flingY = vy;
+                            AnimationCatalog.Motion drop = catalog.match("原地漂浮踏步");
+                            if (drop != null) {
+                                play(drop, true, false);
+                                // play() may set a walk direction for the 移动 clip;
+                                // restore the actual release fling values.
+                                vx = flingX; vy = flingY;
+                                walkUntil = 0;
+                                if (edge == Edge.LEFT && vx < 0) vx = 0;
+                                if (edge == Edge.RIGHT && vx > 0) vx = 0;
+                                if (vx != 0) view.setScaleX(vx < 0 ? 1 : -1);
+                            } else if (prefs.flag("auto_play", true)) {
+                                scheduleNext();
+                            } else {
+                                vx = vy = 0;
+                            }
                             save();
-                            manualPlay = false;
-                            if (prefs.flag("auto_play", true)) scheduleNext();
-                            else vx = vy = 0;
-                        } else if (!longPressed) view.performClick();
+                            interruptedEnd = false;
+                        } else if (!longPressed) {
+                            view.performClick();
+                        }
                         logPet("up moved=" + moved + " raw=" + e.getRawX() + "," + e.getRawY() + " edge=" + edge + " velocity=" + vx + "," + vy);
                     } else {
                         if (moved) save();
-                        logPet("cancel raw=" + e.getRawX() + "," + e.getRawY() + " edge=" + edge);
+                        // If the current clip ended while the finger was down, its
+                        // callback was deliberately skipped; resume rotation now.
+                        if (interruptedEnd && prefs.flag("auto_play", true) && !workHold && !menuOpen) {
+                            interruptedEnd = false;
+                            scheduleNext();
+                        }
+                        logPet("cancel raw=" + e.getRawX() + "," + e.getRawY() + " edge=" + edge + " interrupted=" + interruptedEnd);
                     }
                     return true;
                 }
             }
             return true;
         }
+
 
         void clamp() {
             lp.x = Math.max(0, Math.min(Math.max(0, screenWidth - lp.width), lp.x));
@@ -684,6 +647,7 @@ public final class PetService extends Service {
             else if (lp.y > maxY) { lp.y = maxY; if (vy > 0) vy = 0; hit = true; }
             refreshEdge();
             update();
+            if (SystemClock.uptimeMillis() > walkUntil) { vx *= 0.88f; vy *= 0.88f; }
             if (hit || previousEdge != edge) logPet("step hit=" + hit + " edge=" + edge);
             if (Math.abs(vx) + Math.abs(vy) < 0.25f) { vx = vy = 0; save(); }
         }
@@ -979,7 +943,7 @@ public final class PetService extends Service {
 
     @Override public void onConfigurationChanged(Configuration c) {
         super.onConfigurationChanged(c);
-        for (Pet p : pets) { p.cancelDrag(); p.save(); }
+        for (Pet p : pets) p.save();
         edgeLog("configuration changed " + c.orientation + " " + c.screenWidthDp + "x" + c.screenHeightDp);
         scheduleScreenRefresh();
     }

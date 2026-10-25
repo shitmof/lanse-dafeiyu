@@ -15,11 +15,27 @@ public final class PetApi {
     public static URI validateBase(String input) throws Exception {
         URI uri=new URI(input.trim());String host=uri.getHost();
         if(host==null||uri.getUserInfo()!=null||uri.getQuery()!=null||uri.getFragment()!=null)throw new IOException("地址格式不正确，请填写不含密钥的服务根地址。");
+        String path=uri.getPath()==null?"":uri.getPath().replaceAll("/+$","");
+        if(path.endsWith("/chat/completions")||path.endsWith("/completions"))throw new IOException("请填写服务根地址（例如 https://api.deepseek.com 或 https://服务地址/v1），不要包含 /chat/completions。");
         boolean local=host.equals("localhost")||host.equals("127.0.0.1")||host.equals("[::1]")||host.matches("10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}")||host.matches("192\\.168\\.\\d{1,3}\\.\\d{1,3}")||host.matches("172\\.(1[6-9]|2\\d|3[01])\\.\\d{1,3}\\.\\d{1,3}");
         if(!"https".equals(uri.getScheme())&&!("http".equals(uri.getScheme())&&local))throw new IOException("公网服务需使用 HTTPS；HTTP 仅支持本机和局域网 IP。");
         return uri;
     }
-    private String endpoint(String base,String path)throws Exception {validateBase(base);return base.replaceAll("/+$","")+path;}
+    private String endpoint(String base,String path)throws Exception {
+        validateBase(base);
+        String clean=base.replaceAll("/+$","");
+        if(clean.endsWith("/chat/completions")||clean.endsWith("/completions"))throw new IOException("服务根地址不要包含 /chat/completions，请删除后再保存。");
+        return clean+path;
+    }
+    private String httpError(HttpURLConnection conn,int status){
+        String detail="";
+        try(InputStream err=conn.getErrorStream()){if(err!=null)detail=readLimited(err);}catch(Exception ignored){}
+        String safe=detail.replaceAll("\\s+"," ").trim();
+        try{JSONObject json=new JSONObject(detail);JSONObject error=json.optJSONObject("error");String message=error==null?json.optString("message",""):error.optString("message","");String code=error==null?json.optString("code",""):error.optString("code","");if(!message.isEmpty())safe=(code.isEmpty()?"":code+": ")+message;}catch(Exception ignored){}
+        if(safe.length()>300)safe=safe.substring(0,300)+"…";
+        String base=switch(status){case 401,403->"认证失败，请检查密钥或连接令牌。";case 429->"请求过于频繁或额度不足，请稍后再试。";case 404->"服务接口不存在，请检查服务根地址和模型名。";default->"服务暂不可用（HTTP "+status+"）。";};
+        return safe.isEmpty()?base:base+" 服务返回："+safe;
+    }
     private JSONObject request(String method,String url,String token,JSONObject body)throws Exception {
         HttpURLConnection conn=(HttpURLConnection)new URL(url).openConnection();
         conn.setInstanceFollowRedirects(false);conn.setConnectTimeout(12000);conn.setReadTimeout(60000);conn.setRequestMethod(method);
@@ -28,8 +44,14 @@ public final class PetApi {
         try{
             if(body!=null){conn.setDoOutput(true);conn.setRequestProperty("Content-Type","application/json; charset=utf-8");try(OutputStream out=conn.getOutputStream()){out.write(body.toString().getBytes(StandardCharsets.UTF_8));}}
             int status=conn.getResponseCode();
-            if(status<200||status>=300)throw new IOException(switch(status){case 401,403->"认证失败，请检查密钥或连接令牌。";case 429->"请求过于频繁或额度不足，请稍后再试。";case 404->"服务接口不存在，请检查服务根地址。";default->"服务暂不可用（HTTP "+status+"）。";});
-            try(InputStream in=conn.getInputStream()){return new JSONObject(readLimited(in));}
+            if(status<200||status>=300)throw new IOException(httpError(conn,status));
+            String contentType=conn.getContentType();
+            if(contentType!=null&&contentType.toLowerCase(java.util.Locale.ROOT).contains("text/event-stream"))throw new IOException("服务返回了流式响应；当前版本只支持非流式聊天，请改用非流式接口。");
+            try(InputStream in=conn.getInputStream()){
+                String raw=readLimited(in);
+                try{return new JSONObject(raw);}
+                catch(JSONException e){throw new IOException("服务返回了非 JSON 响应，请检查服务根地址和接口协议。");}
+            }
         }catch(SocketTimeoutException e){throw new IOException("连接超时，请检查网络或稍后重试。");}
         catch(UnknownHostException e){throw new IOException("找不到服务器，请检查地址和网络。");}
         finally{conn.disconnect();}
@@ -74,9 +96,31 @@ public final class PetApi {
         JSONObject body=new JSONObject().put("model",prefs.text("model","deepseek-flash")).put("messages",messages).put("stream",false).put("max_tokens",1024);
         if(new URI(base).getHost().equals("api.deepseek.com"))body.put("thinking",new JSONObject().put("type","disabled"));
         JSONObject r=request("POST",endpoint(base,"/chat/completions"),key,body);
-        String reply=r.getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content","").trim();
-        if(reply.isEmpty())throw new IOException("模型没有返回正文，请换一个模型或重试。");
-        return reply;
+        try{
+            JSONObject choice=r.getJSONArray("choices").getJSONObject(0);
+            JSONObject message=choice.getJSONObject("message");
+            String reply=contentText(message);
+            if(reply.isEmpty()){
+                String finish=choice.optString("finish_reason","");
+                throw new IOException("模型没有返回正文"+(finish.isEmpty()?"":"（finish_reason="+finish+"）")+"，请换一个模型或重试。");
+            }
+            return reply;
+        }catch(JSONException e){throw new IOException("聊天响应格式不兼容，请检查服务商接口是否为非流式 Chat Completions。");}
+    }
+    private String contentText(JSONObject message){
+        Object content=message.opt("content");
+        if(content instanceof String)return ((String)content).trim();
+        if(content instanceof JSONArray){
+            StringBuilder b=new StringBuilder();
+            JSONArray parts=(JSONArray)content;
+            for(int i=0;i<parts.length();i++){
+                JSONObject part=parts.optJSONObject(i);if(part==null)continue;
+                String text=part.optString("text","");
+                if(!text.isEmpty())b.append(text);
+            }
+            return b.toString().trim();
+        }
+        return "";
     }
     public String whisper()throws Exception{
         if(prefs.text("mode","offline").equals("dsh"))return replyText(dsh("POST","/whisper?pet="+petId(),new JSONObject()));
@@ -107,11 +151,19 @@ public final class PetApi {
     }
     public String testConnection()throws Exception{
         if(prefs.text("mode","offline").equals("offline"))return "离线模式已就绪，不需要网络。";
-        if(prefs.text("mode","offline").equals("dsh")){JSONObject s=state();if(!s.has("pets")||!s.has("sections"))throw new IOException("该地址不是兼容的 DSH 桌宠接口。");return "DSH 连接成功。";}
+        if(prefs.text("mode","offline").equals("dsh")){JSONObject s=state();if(!s.has("pets")||!s.has("sections"))throw new IOException("该地址不是兼容的 DSH 桌宠接口。");return "DSH 地址检查通过。";}
         JSONObject r=request("GET",endpoint(prefs.text("api_url","https://api.deepseek.com"),"/models"),prefs.secret("api_key"),null);
         JSONArray data=r.optJSONArray("data");if(data==null)throw new IOException("模型列表格式不兼容。");
         String desired=prefs.text("model","deepseek-flash");boolean found=false;for(int i=0;i<data.length();i++)if(desired.equals(data.getJSONObject(i).optString("id")))found=true;
-        return found?"连接成功，模型可用。":"连接成功，但模型列表中未找到所填模型，请核对名称。";
+        return found?"地址与模型列表检查通过；这不代表聊天可用，请用“发送真实测试消息”验证。":"地址检查通过，但模型列表中未找到所填模型，请核对名称。";
+    }
+
+    /** One explicit, user-triggered chat request; never called automatically. */
+    public String testChat(String text)throws Exception{
+        String mode=prefs.text("mode","offline");
+        if(mode.equals("offline"))throw new IOException("当前是离线陪伴模式，请先选择联网对话。");
+        if(mode.equals("dsh"))return replyText(dsh("POST","/chat?pet="+petId(),new JSONObject().put("text",text)));
+        return completion(text,false);
     }
     public JSONObject state()throws Exception{return dsh("GET","/state",null);}
     private String petId()throws Exception{return URLEncoder.encode(prefs.text("dsh_pet","main"),"UTF-8");}
