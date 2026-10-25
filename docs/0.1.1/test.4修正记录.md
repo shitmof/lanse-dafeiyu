@@ -89,7 +89,7 @@
 - **正式 release APK 未构建**：本机 `:app:validateSigningRelease --no-daemon --rerun-tasks` 仍报 `release.jks` 路径不存在；Codex 的 fresh log 显示该验证曾通过。没有生成/替换密钥，也没有正式签名包。
 - 动作切换的 30dp 误差已从代码路径移除，但未做手机像素级测量。
 
-## 4. 构建产物
+## 4. 构建产物\n\n- 发布页：https://github.com/shitmof/lanse-dafeiyu/releases/tag/v0.1.1-test.4\n- PR #4（draft，未合并）：https://github.com/shitmof/lanse-dafeiyu/pull/4
 
 - `output/candidate-0.1.1-test.4/blue-fat-fish-0.1.1-test.4-debug.apk`
 - 版本：versionCode 5 / 0.1.1-test.4
