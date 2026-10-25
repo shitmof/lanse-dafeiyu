@@ -142,13 +142,13 @@ public final class MainActivity extends Activity {
         else if(mode.equals("dsh"))where="DSH · "+prefs.text("dsh_url","未填写地址");
         heading.addView(text("模式："+where+" · 密钥只保存在本机",12,MUTED));
         chatScroll=new ScrollView(this);chatScroll.setFillViewport(true);messages=column();messages.setPadding(dp(20),0,dp(20),dp(12));chatScroll.addView(messages);content.addView(chatScroll,new LinearLayout.LayoutParams(-1,0,1));
+        JSONArray history=new PetApi(this).history();
+        if(history.length()==0){LinearLayout welcome=card(messages);pet(welcome,150,"元气挥手");welcome.addView(text("我在呢。吃饭、发呆，或者随便聊聊，都可以。",16,INK));}
+        else for(int i=0;i<history.length();i++){JSONObject m=history.optJSONObject(i);if(m!=null)chatBubble(m.optString("content"),m.optString("role").equals("user"));}
         if(!chatError.isEmpty()){
             LinearLayout err=card(messages);err.addView(text("上次发送失败："+chatError,14,0xFF945537));gap(err,8);
             err.addView(button("重试",false,this::sendChat));
         }
-        JSONArray history=new PetApi(this).history();
-        if(history.length()==0){LinearLayout welcome=card(messages);pet(welcome,150,"元气挥手");welcome.addView(text("我在呢。吃饭、发呆，或者随便聊聊，都可以。",16,INK));}
-        else for(int i=0;i<history.length();i++){JSONObject m=history.optJSONObject(i);if(m!=null)chatBubble(m.optString("content"),m.optString("role").equals("user"));}
         LinearLayout input=row();input.setPadding(dp(16),dp(10),dp(16),dp(10));composer=new EditText(this);composer.setHint("说点什么……");composer.setText(chatDraft);composer.setTextSize(15);composer.setTextColor(INK);composer.setMaxLines(4);composer.setBackground(bg(Color.WHITE,18));composer.setPadding(dp(14),dp(12),dp(14),dp(12));composer.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);input.addView(composer,new LinearLayout.LayoutParams(0,-2,1));
         send=button(sending?"等待…":"发送",true,this::sendChat);send.setEnabled(!sending);LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(76),dp(50));bp.leftMargin=dp(8);input.addView(send,bp);content.addView(input);chatScroll.post(()->chatScroll.fullScroll(View.FOCUS_DOWN));
     }
@@ -240,7 +240,7 @@ public final class MainActivity extends Activity {
         section(p,"本机数据");fullButton(p,"导出聊天记录",false,()->startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json").putExtra(Intent.EXTRA_TITLE,"蓝色大肥鱼-聊天记录.json"),40));gap(p,10);
         fullButton(p,"清空本机聊天记录",false,()->new AlertDialog.Builder(this).setTitle("清空聊天记录？").setMessage("仅删除手机内的记录，不会删除 DSH 电脑端记录。").setNegativeButton("保留",null).setPositiveButton("清空",(d,w)->{prefs.put("history","[]");toast("本机聊天记录已清空。");}).show());gap(p,10);
         fullButton(p,"移除已存密钥与令牌",false,()->new AlertDialog.Builder(this).setTitle("移除连接凭据？").setNegativeButton("取消",null).setPositiveButton("移除",(d,w)->{try{prefs.secret("api_key","");prefs.secret("dsh_token","");toast("已移除。");}catch(Exception e){toast("未能移除，请重试。");}}).show());
-        section(p,"关于这只鱼");p.addView(text("蓝色大肥鱼 0.1.1-test.3\nAndroid 9+ · 基于 dsh-pet 0.3.8\n原作者 PC2005-cloud · 代码 MIT · 素材禁止商用\n完整动画 "+catalog.motions.size()+" 段，随 APK 离线提供。",13,MUTED));gap(p,10);
+        section(p,"关于这只鱼");p.addView(text("蓝色大肥鱼 0.1.1-test.4\nAndroid 9+ · 基于 dsh-pet 0.3.8\n原作者 PC2005-cloud · 代码 MIT · 素材禁止商用\n完整动画 "+catalog.motions.size()+" 段，随 APK 离线提供。",13,MUTED));gap(p,10);
         fullButton(p,"开源说明与隐私",false,()->{
             String license;try{license=AnimationCatalog.read(this,"THIRD_PARTY_NOTICES.txt");}catch(IOException e){try{license=AnimationCatalog.read(this,"UPSTREAM-LICENSE.txt");}catch(IOException e2){license="MIT · PC2005-cloud";}}
             new AlertDialog.Builder(this).setTitle("开源与隐私").setMessage("素材来源：https://github.com/PC2005-cloud/dsh-pet\n\n不读取屏幕、通讯录或通知内容，不申请无障碍权限，不含广告与统计 SDK。聊天只在你选择联网模式后发送至你配置的服务。AI 自动碎碎念需单独开启。\n\n系统安全页面可能隐藏悬浮窗。桌面端插件管理与任意电脑自动化不属于 Android 本地能力。\n\n"+license).setPositiveButton("知道了",null).show();

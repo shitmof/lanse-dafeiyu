@@ -27,14 +27,38 @@ public final class PetApi {
         if(clean.endsWith("/chat/completions")||clean.endsWith("/completions"))throw new IOException("服务根地址不要包含 /chat/completions，请删除后再保存。");
         return clean+path;
     }
-    private String httpError(HttpURLConnection conn,int status){
-        String detail="";
-        try(InputStream err=conn.getErrorStream()){if(err!=null)detail=readLimited(err);}catch(Exception ignored){}
-        String safe=detail.replaceAll("\\s+"," ").trim();
-        try{JSONObject json=new JSONObject(detail);JSONObject error=json.optJSONObject("error");String message=error==null?json.optString("message",""):error.optString("message","");String code=error==null?json.optString("code",""):error.optString("code","");if(!message.isEmpty())safe=(code.isEmpty()?"":code+": ")+message;}catch(Exception ignored){}
-        if(safe.length()>300)safe=safe.substring(0,300)+"…";
+    private String httpError(HttpURLConnection conn,int status,String token,JSONObject body){
+        String raw="";
+        try(InputStream err=conn.getErrorStream()){if(err!=null)raw=readLimited(err);}catch(Exception ignored){}
         String base=switch(status){case 401,403->"认证失败，请检查密钥或连接令牌。";case 429->"请求过于频繁或额度不足，请稍后再试。";case 404->"服务接口不存在，请检查服务根地址和模型名。";default->"服务暂不可用（HTTP "+status+"）。";};
-        return safe.isEmpty()?base:base+" 服务返回："+safe;
+        JSONObject json=null;
+        try{json=new JSONObject(raw);}catch(Exception ignored){}
+        if(json==null)return base+" 服务返回非 JSON 错误（正文已隐藏）。";
+        String code="",message="";
+        JSONObject error=json.optJSONObject("error");
+        if(error!=null){code=error.optString("code","");message=error.optString("message","");}
+        if(message.isEmpty())message=json.optString("message","");
+        if(code.isEmpty())code=json.optString("code","");
+        String safe=sanitizeError((code.isEmpty()?"":code+": ")+message,token,body);
+        if(safe.isEmpty())safe="服务返回错误（详情已隐藏）";
+        return base+" 服务返回："+safe;
+    }
+    private void requestValues(Object value,List<String> out){
+        if(value instanceof String){String s=(String)value;if(s.length()>=4)out.add(s);return;}
+        if(value instanceof JSONObject){JSONObject o=(JSONObject)value;Iterator<String> it=o.keys();while(it.hasNext())requestValues(o.opt(it.next()),out);return;}
+        if(value instanceof JSONArray){JSONArray a=(JSONArray)value;for(int i=0;i<a.length();i++)requestValues(a.opt(i),out);}
+    }
+    private String sanitizeError(String input,String token,JSONObject body){
+        if(input==null)return "";
+        String safe=input.replaceAll("\\s+"," ").trim();
+        if(token!=null&&!token.isEmpty())safe=safe.replace(token,"[凭据已隐藏]");
+        safe=safe.replaceAll("(?i)bearer\\s+[A-Za-z0-9._~+/=-]+","Bearer [凭据已隐藏]");
+        safe=safe.replaceAll("(?i)sk-[A-Za-z0-9_-]{8,}","[凭据已隐藏]");
+        safe=safe.replaceAll("(?i)\\b(api[_-]?key|access[_-]?token|auth(?:orization)?|token|password|secret)\\b\\s*[:=]\\s*[^\\s,;]+","$1=[已隐藏]");
+        List<String> values=new ArrayList<>();requestValues(body,values);
+        for(String value:values){if(value.length()>=4)safe=safe.replace(value,"[请求内容已隐藏]");}
+        if(safe.length()>300)safe=safe.substring(0,300)+"…";
+        return safe;
     }
     private JSONObject request(String method,String url,String token,JSONObject body)throws Exception {
         HttpURLConnection conn=(HttpURLConnection)new URL(url).openConnection();
@@ -44,7 +68,7 @@ public final class PetApi {
         try{
             if(body!=null){conn.setDoOutput(true);conn.setRequestProperty("Content-Type","application/json; charset=utf-8");try(OutputStream out=conn.getOutputStream()){out.write(body.toString().getBytes(StandardCharsets.UTF_8));}}
             int status=conn.getResponseCode();
-            if(status<200||status>=300)throw new IOException(httpError(conn,status));
+            if(status<200||status>=300)throw new IOException(httpError(conn,status,token,body));
             String contentType=conn.getContentType();
             if(contentType!=null&&contentType.toLowerCase(java.util.Locale.ROOT).contains("text/event-stream"))throw new IOException("服务返回了流式响应；当前版本只支持非流式聊天，请改用非流式接口。");
             try(InputStream in=conn.getInputStream()){

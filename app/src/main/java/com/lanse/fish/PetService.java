@@ -423,7 +423,7 @@ public final class PetService extends Service {
 
         void onEnd(int generation) {
             if (destroyed || generation != playGeneration) return;
-            if (dragging) { interruptedEnd = true; return; }
+            if (dragging) { interruptedEnd = true; manualPlay = false; return; }
             if (workHold && workState != null) {
                 handler.postDelayed(() -> { if (!destroyed && workHold) play(catalog.workMotion(workState), true, false); }, 250);
                 return;
@@ -561,10 +561,19 @@ public final class PetService extends Service {
                         moved = true; handler.removeCallbacks(hold); hideMenu();
                         // Restore the 0.1.0 drag pickup feedback; it is a visual
                         // clip, not permission to change the drag position.
-                        playWhileDragging(catalog.match("被鼠标拖拽悬空反馈"));
+                        AnimationCatalog.Motion pickup = catalog.match("被鼠标拖拽悬空反馈");
+                        if (pickup != null) {
+                            playWhileDragging(pickup);
+                            // play() changed the crop and kept the body anchor. Rebase
+                            // the drag origin to the new window/finger, otherwise the
+                            // old crop origin would add a 20-30dp jump.
+                            startX = lp.x; startY = lp.y;
+                            downX = e.getRawX(); downY = e.getRawY();
+                        }
                     }
                     if (moved && !prefs.flag("fixed", false)) {
-                        lp.x = Math.round(startX + dx); lp.y = Math.round(startY + dy);
+                        float dx2 = e.getRawX() - downX, dy2 = e.getRawY() - downY;
+                        lp.x = Math.round(startX + dx2); lp.y = Math.round(startY + dy2);
                         clamp(); refreshEdge(); update();
                     }
                     return true;
@@ -615,6 +624,7 @@ public final class PetService extends Service {
                         // callback was deliberately skipped; resume rotation now.
                         if (interruptedEnd && prefs.flag("auto_play", true) && !workHold && !menuOpen) {
                             interruptedEnd = false;
+                            manualPlay = false;
                             scheduleNext();
                         }
                         logPet("cancel raw=" + e.getRawX() + "," + e.getRawY() + " edge=" + edge + " interrupted=" + interruptedEnd);

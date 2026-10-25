@@ -90,6 +90,22 @@ def choose_window(device, token=None, index=0):
     return windows[index]
 
 
+def contains(frame, x, y):
+    return frame[0] <= x < frame[2] and frame[1] <= y < frame[3]
+
+
+def target_covered(device, token, cx, cy):
+    """True when a later (higher-z) app overlay covers the touch point."""
+    windows = overlay_windows(device)
+    target_index = next((i for i, w in enumerate(windows) if w['token'] == token), None)
+    if target_index is None:
+        return True
+    for later in windows[target_index + 1:]:
+        if contains(later['frame'], cx, cy):
+            return True
+    return False
+
+
 def drag(device, token, side, fast, settle_ms):
     display_w, display_h = screen_size(device)
     before = choose_window(device, token)
@@ -98,6 +114,9 @@ def drag(device, token, side, fast, settle_ms):
     if w <= 0 or h <= 0:
         raise RuntimeError(f'invalid actual frame {before["frame"]}')
     cx, cy = x + w // 2, y + h // 2
+    if target_covered(device, token, cx, cy):
+        print(f'FAIL side={side:5s} token={token} target_covered at {cx},{cy}')
+        return False, token
     target = 2 if side == 'left' else display_w - 3
     adb(device, 'shell', 'input', 'swipe', str(cx), str(cy), str(target), str(cy),
         '100' if fast else '800')
@@ -105,15 +124,16 @@ def drag(device, token, side, fast, settle_ms):
     after = choose_window(device, token)
     ax, ay, ax2, ay2 = after['frame']
     aw, ah = ax2 - ax, ay2 - ay
-    # The temporary carrier must be gone: a full-screen carrier would be both
-    # almost as wide and almost as tall as the display. A legitimate wide effect
-    # can be wide, but not both full-screen dimensions after release.
-    restored = not (aw >= display_w - 2 and ah >= display_h - 2)
+    # A valid result must be inside the display and look like a cropped pet, not
+    # a full-screen carrier. A wide but short effect is still a normal pet clip.
+    inside = ax >= -2 and ay >= -2 and ax2 <= display_w + 2 and ay2 <= display_h + 2
+    area_ratio = (aw * ah) / float(max(1, display_w * display_h))
+    small = aw <= display_w * 0.98 and ah <= display_h * 0.88 and area_ratio <= 0.55
+    restored = inside and small
     if side == 'left':
         edge_ok = ax <= 3
     else:
         edge_ok = ax2 >= display_w - 3
-    # Check the app did not leave another full-screen overlay behind.
     residual = any(
         win['frame'][2] - win['frame'][0] >= display_w - 2
         and win['frame'][3] - win['frame'][1] >= display_h - 2
@@ -124,6 +144,7 @@ def drag(device, token, side, fast, settle_ms):
         f"{'OK  ' if ok else 'FAIL'} side={side:5s} {'fast' if fast else 'slow'} "
         f"screen={display_w}x{display_h} token={token} "
         f"before_actual=({x},{y},{x2},{y2}) after_actual=({ax},{ay},{ax2},{ay2}) "
+        f"inside={inside} small={small} area={area_ratio:.3f} "
         f"restored={restored} edge={edge_ok} residual_fullscreen={residual}"
     )
     return ok, token
