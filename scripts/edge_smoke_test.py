@@ -95,12 +95,12 @@ def contains(frame, x, y):
 
 
 def target_covered(device, token, cx, cy):
-    """True when a later (higher-z) app overlay covers the touch point."""
+    """True when an earlier (higher-z) app overlay covers the touch point."""
     windows = overlay_windows(device)
     target_index = next((i for i, w in enumerate(windows) if w['token'] == token), None)
     if target_index is None:
         return True
-    for later in windows[target_index + 1:]:
+    for later in windows[:target_index]:
         if contains(later['frame'], cx, cy):
             return True
     return False

@@ -2,6 +2,7 @@
 import subprocess,sys,time,re,xml.etree.ElementTree as ET
 from pathlib import Path
 from PIL import Image
+from edge_smoke_test import overlay_windows
 ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'output'
 serial=sys.argv[1]
 def adb(*args):return subprocess.check_output(['adb','-s',serial,*args],text=True,encoding='utf-8',errors='replace')
@@ -19,24 +20,27 @@ def tap_text(value):
         if value in n.get('text','') and n.get('clickable')=='true':
             x1,y1,x2,y2=map(int,re.findall(r'\d+',n.get('bounds')));adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2));return
     raise AssertionError('Missing UI control: '+value)
-def overlay_frames():
-    text=adb('shell','dumpsys','window','windows')
-    frames=[]
-    for block in re.split(r'Window #\d+',text):
-        if 'package=com.lanse.fish appop=SYSTEM_ALERT_WINDOW' in block and 'ty=APPLICATION_OVERLAY' in block:
-            match=re.search(r'frame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]',block)
-            if match:frames.append(tuple(map(int,match.groups())))
-    return frames
+pet_token=None
+
+def overlay_frames():return [w['frame'] for w in overlay_windows(serial)]
+
 def pet_frame():
-    frames=overlay_frames();assert frames,'Pet overlay window missing'
-    return next(f for f in frames if f[3]-f[1]<f[2]-f[0])
+    global pet_token
+    windows=overlay_windows(serial)
+    assert windows,'Pet overlay window missing'
+    found=next((w for w in windows if w['token']==pet_token),None)
+    if found is None:
+        assert len(windows)==1,'Ambiguous pet: close other overlay panels first'
+        found=windows[0];pet_token=found['token']
+    return found['frame']
+
 adb('shell','am','start','-n','com.lanse.fish/.MainActivity','--es','page','home');time.sleep(1)
 tap_text('小窝');time.sleep(.3)
 if overlay_frames():tap_text('正在陪伴');time.sleep(.5)
 capture('home.png');tap_text('开始陪伴');time.sleep(1);adb('shell','input','keyevent','3');time.sleep(1)
 frame=pet_frame();capture('overlay-home.png')
 # Open an ordinary second app, whose activity is observed in the test emulator.
-adb('shell','am','start','-a','android.intent.action.VIEW','-d','about:blank','-p','com.android.chromium');time.sleep(2)
+launched=adb('shell','am','start','-a','android.intent.action.VIEW','-d','about:blank','-p','com.android.chromium');assert 'Error' not in launched,launched;time.sleep(2)
 frame=pet_frame();capture('overlay-other-app.png')
 x1,y1,x2,y2=frame;cx=(x1+x2)//2;cy=(y1+y2)//2
 with Image.open(OUT/'overlay-other-app.png') as screen:w,h=screen.size
@@ -48,9 +52,17 @@ adb('shell','input','swipe',str(cx),str(cy),str(cx),str(cy),'850');time.sleep(.3
 capture('overlay-menu.png')
 # uiautomator dump only exposes the focused activity, not this non-focusable overlay.
 # Verify the tall menu window and tap its first row, visually checked in overlay-menu.png.
-menus=[f for f in overlay_frames() if f[3]-f[1]>f[2]-f[0]]
+menus=[w['frame'] for w in overlay_windows(serial) if w['token']!=pet_token]
 assert len(menus)==1,'Long press menu missing'
-mx1,my1,mx2,my2=menus[0];adb('shell','input','tap',str((mx1+mx2)//2),str(my1+(my2-my1)//16))
+mx1,my1,mx2,my2=menus[0]
+density=int(re.findall(r'\d+',adb('shell','wm','density'))[-1])/160
+# Root: fifth row is More. More: second row is Chat.
+adb('shell','input','tap',str((mx1+mx2)//2),str(round(my1+(6+4.5*40)*density)))
+time.sleep(.3)
+menus=[w['frame'] for w in overlay_windows(serial) if w['token']!=pet_token]
+assert len(menus)==1,'More menu missing'
+mx1,my1,mx2,my2=menus[0]
+adb('shell','input','tap',str((mx1+mx2)//2),str(round(my1+(6+1.5*40)*density)))
 time.sleep(.8);capture('chat.png')
 nodes=xml();assert any('离线陪伴' in n.get('text','') for n in nodes.iter('node')),'Offline mode label missing'
 # Screen off and on: service should remain alive and return to a valid window.

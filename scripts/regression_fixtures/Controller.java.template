@@ -1,0 +1,100 @@
+package com.lanse.fish;
+import java.util.*;
+import org.json.*;
+import com.lanse.fish.AnimationCatalog.Motion;
+public class PetService {
+  enum Edge {NONE,LEFT,RIGHT}
+  final Prefs prefs=new Prefs(); final Handler handler=new Handler();
+  final Random random=new Random(1); final WindowManager windows=new WindowManager();
+  AnimationCatalog catalog;
+  boolean destroyed=false,screenOn=true;
+  int screenWidth=1080,screenHeight=2400,insetLeft,insetTop,insetRight,insetBottom;
+  Object displayBounds="fixture";
+  static final float ANCHOR_X=.5f,ANCHOR_Y=.92f;
+  int dp(float x){return Math.round(x);}
+  WindowManager.LayoutParams params(int w,int h){return new WindowManager.LayoutParams(w,h);}
+  void hideMenu(){} void hideBubble(){} void menu(Pet p){p.menuOpen=true;}
+  void say(Pet p,String s){} void stopSelf(){} boolean debugBuild(){return false;}
+/* PET_CONTROLLER */
+  static final class Prefs {
+    final Map<String,Object> data=new HashMap<>();
+    String text(String k,String d){return (String)data.getOrDefault(k,d);}
+    int number(String k,int d){return (Integer)data.getOrDefault(k,d);}
+    boolean flag(String k,boolean d){return (Boolean)data.getOrDefault(k,d);}
+    void put(String k,Object v){data.put(k,v);}
+  }
+  static final class Handler {
+    final List<Runnable> q=new ArrayList<>();
+    void postDelayed(Runnable r,long ms){q.add(r);}
+    void removeCallbacks(Runnable r){q.removeIf(v->v==r);}
+    void drainOnce(){List<Runnable> copy=new ArrayList<>(q);q.clear();for(Runnable r:copy)r.run();}
+  }
+  static final class SystemClock {static long uptimeMillis(){return 100_000L;}}
+  static final class Log {static void d(String a,String b){}}
+  static final class WindowManager {
+    static final class LayoutParams {int x,y,width,height;LayoutParams(int w,int h){width=w;height=h;}}
+    void updateViewLayout(PetView v,LayoutParams lp){}
+  }
+  static final class Animator {
+    void cancel(){} Animator scaleY(float y){return this;} Animator setDuration(long d){return this;}
+    Animator withEndAction(Runnable r){return this;} void start(){}
+  }
+  static final class PetView {
+    interface Click {void click(PetView v);} interface Touch {boolean touch(PetView v,MotionEvent e);}
+    Click click;Runnable ended;int playCalls;
+    PetView(PetService s){} void setAlpha(float f){} void setScaleY(float f){} float flip=1; void setScaleX(float f){flip=f;} float getScaleX(){return flip;}
+    void setCrop(Motion m,int w,int h,int p){} void setOnClickListener(Click c){click=c;}
+    void setOnTouchListener(Touch t){} void play(Motion m,Runnable end){ended=end;playCalls++;}
+    boolean performClick(){click.click(this);return true;} void pause(boolean b){}
+    Animator animate(){return new Animator();} boolean isAttachedToWindow(){return true;}
+    void getLocationOnScreen(int[] a){} int getWidth(){return 160;} int getHeight(){return 180;}
+  }
+  static final class MotionEvent {
+    static final int ACTION_DOWN=0,ACTION_UP=1,ACTION_MOVE=2,ACTION_CANCEL=3;
+    final int action;final float x,y;final long time;
+    MotionEvent(int a,float x,float y,long t){action=a;this.x=x;this.y=y;time=t;}
+    int getActionMasked(){return action;}float getRawX(){return x;}float getRawY(){return y;}long getEventTime(){return time;}
+  }
+  static MotionEvent event(int a,float x,float y,long t){return new MotionEvent(a,x,y,t);}
+  static PetService env(String path)throws Exception {PetService s=new PetService();s.catalog=new AnimationCatalog(path);s.prefs.put("schedule",false);return s;}
+
+  public static void main(String[] args)throws Exception {
+    JSONArray rows=new JSONArray();
+    for(boolean hold:new boolean[]{false,true})for(boolean endFirst:new boolean[]{false,true}){
+      PetService s=env(args[0]);Pet p=s.new Pet(0);
+      if(hold)p.setWork("working",true);
+      p.touch(event(0,500,700,0));p.touch(event(2,530,700,100));
+      if(endFirst)p.view.ended.run();
+      int before=p.view.playCalls;
+      p.touch(event(3,530,700,30000));
+      if(!endFirst)p.view.ended.run();
+      s.handler.drainOnce();
+      rows.put(new JSONObject().put("scenario",(hold?"work_hold_":"auto_")+(endFirst?"end_then_cancel":"cancel_then_end"))
+        .put("workHold",p.workHold).put("manualPlay",p.manualPlay).put("interruptedEnd",p.interruptedEnd)
+        .put("automatic_successor_selected",s.catalog.nextCalls).put("queued_callbacks",s.handler.q.size())
+        .put("play_calls_after_cancel",p.view.playCalls-before).put("final_motion",p.motion.name()));
+    }
+    for(float flip:new float[]{1,-1})for(float first:new float[]{9,20,80}){
+      PetService s=env(args[0]);Pet p=s.new Pet(0);p.play(s.catalog.match("蓝鲸现世"),false,false);
+      p.edge=Edge.NONE;p.lp.x=300;p.lp.y=400;
+      p.view.setScaleX(flip);float ax=p.anchorX(),ay=p.anchorY();
+      p.touch(event(0,330,460,0));p.touch(event(2,330+first,460,100));
+      float firstMove=p.anchorX()-ax;
+      p.touch(event(2,350+first,460,200));
+      float secondMove=p.anchorX()-ax;
+      p.touch(event(3,350+first,460,210));
+      rows.put(new JSONObject().put("scenario","crop_rebase_first_delta_"+first+"_facing_"+flip).put("density",1)
+        .put("canvas_width_dp",260).put("first_finger_delta",first).put("first_anchor_delta",firstMove)
+        .put("total_finger_delta",first+20).put("total_anchor_delta",secondMove)
+        .put("cancel_anchor_error",p.anchorX()-(ax+first+20)).put("anchor_y_error",p.anchorY()-ay));
+    }
+    for(String obstacle:new String[]{"menu","screen"}){
+      PetService e=env(args[0]);Pet p=e.new Pet(0);p.setWork("working",true);
+      if(obstacle.equals("menu"))p.menuOpen=true;else e.screenOn=false;
+      p.view.ended.run();int before=p.view.playCalls;
+      p.menuOpen=false;e.screenOn=true;p.resumeCompleted();e.handler.drainOnce();
+      rows.put(new JSONObject().put("scenario","work_resume_"+obstacle).put("play_calls_after_resume",p.view.playCalls-before));
+    }
+    System.out.println(rows.toString(2));
+  }
+}

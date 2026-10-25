@@ -27,10 +27,10 @@ public final class PetApi {
         if(clean.endsWith("/chat/completions")||clean.endsWith("/completions"))throw new IOException("服务根地址不要包含 /chat/completions，请删除后再保存。");
         return clean+path;
     }
-    private String httpError(HttpURLConnection conn,int status,String token,JSONObject body){
+    private String httpError(HttpURLConnection conn,int status){
         String raw="";
         try(InputStream err=conn.getErrorStream()){if(err!=null)raw=readLimited(err);}catch(Exception ignored){}
-        String base=switch(status){case 401,403->"认证失败，请检查密钥或连接令牌。";case 429->"请求过于频繁或额度不足，请稍后再试。";case 404->"服务接口不存在，请检查服务根地址和模型名。";default->"服务暂不可用（HTTP "+status+"）。";};
+        String base="HTTP "+status+" · "+switch(status){case 401,403->"认证失败，请检查密钥或连接令牌。";case 429->"请求过于频繁或额度不足，请稍后再试。";case 404->"服务接口不存在，请检查服务根地址和模型名。";default->"请求被服务拒绝，请检查地址、模型及接口兼容选项。";};
         JSONObject json=null;
         try{json=new JSONObject(raw);}catch(Exception ignored){}
         if(json==null)return base+" 服务返回非 JSON 错误（正文已隐藏）。";
@@ -39,26 +39,16 @@ public final class PetApi {
         if(error!=null){code=error.optString("code","");message=error.optString("message","");}
         if(message.isEmpty())message=json.optString("message","");
         if(code.isEmpty())code=json.optString("code","");
-        String safe=sanitizeError((code.isEmpty()?"":code+": ")+message,token,body);
-        if(safe.isEmpty())safe="服务返回错误（详情已隐藏）";
-        return base+" 服务返回："+safe;
-    }
-    private void requestValues(Object value,List<String> out){
-        if(value instanceof String){String s=(String)value;if(s.length()>=4)out.add(s);return;}
-        if(value instanceof JSONObject){JSONObject o=(JSONObject)value;Iterator<String> it=o.keys();while(it.hasNext())requestValues(o.opt(it.next()),out);return;}
-        if(value instanceof JSONArray){JSONArray a=(JSONArray)value;for(int i=0;i<a.length();i++)requestValues(a.opt(i),out);}
-    }
-    private String sanitizeError(String input,String token,JSONObject body){
-        if(input==null)return "";
-        String safe=input.replaceAll("\\s+"," ").trim();
-        if(token!=null&&!token.isEmpty())safe=safe.replace(token,"[凭据已隐藏]");
-        safe=safe.replaceAll("(?i)bearer\\s+[A-Za-z0-9._~+/=-]+","Bearer [凭据已隐藏]");
-        safe=safe.replaceAll("(?i)sk-[A-Za-z0-9_-]{8,}","[凭据已隐藏]");
-        safe=safe.replaceAll("(?i)\\b(api[_-]?key|access[_-]?token|auth(?:orization)?|token|password|secret)\\b\\s*[:=]\\s*[^\\s,;]+","$1=[已隐藏]");
-        List<String> values=new ArrayList<>();requestValues(body,values);
-        for(String value:values){if(value.length()>=4)safe=safe.replace(value,"[请求内容已隐藏]");}
-        if(safe.length()>300)safe=safe.substring(0,300)+"…";
-        return safe;
+        // Server errors may echo arbitrary secrets, fragments or encoded request
+        // text. Never display their prose. Translate known failures locally.
+        String lower=message.toLowerCase(Locale.ROOT);
+        if(status==400&&(lower.contains("max_tokens")||lower.contains("max_completion_tokens")))
+            return base+" unsupported_parameter：请切换设置中的「回复长度参数」，服务可能要求 max_completion_tokens 或 max_tokens。";
+        if(code.equals("context_length_exceeded"))return base+" 对话超出模型长度，请减少携带的对话轮数。";
+        if(code.equals("model_not_found")||code.equals("invalid_model"))return base+" 模型不存在或当前账户无权使用。";
+        if(code.equals("insufficient_quota"))return base+" 当前账户额度不足。";
+        if(code.equals("unsupported_parameter"))return base+" unsupported_parameter：服务不支持当前请求参数。";
+        return base+" 服务详情已隐藏。";
     }
     private JSONObject request(String method,String url,String token,JSONObject body)throws Exception {
         HttpURLConnection conn=(HttpURLConnection)new URL(url).openConnection();
@@ -68,7 +58,7 @@ public final class PetApi {
         try{
             if(body!=null){conn.setDoOutput(true);conn.setRequestProperty("Content-Type","application/json; charset=utf-8");try(OutputStream out=conn.getOutputStream()){out.write(body.toString().getBytes(StandardCharsets.UTF_8));}}
             int status=conn.getResponseCode();
-            if(status<200||status>=300)throw new IOException(httpError(conn,status,token,body));
+            if(status<200||status>=300)throw new IOException(httpError(conn,status));
             String contentType=conn.getContentType();
             if(contentType!=null&&contentType.toLowerCase(java.util.Locale.ROOT).contains("text/event-stream"))throw new IOException("服务返回了流式响应；当前版本只支持非流式聊天，请改用非流式接口。");
             try(InputStream in=conn.getInputStream()){
@@ -86,6 +76,16 @@ public final class PetApi {
         return out.toString("UTF-8");
     }
     public JSONArray history(){try{return new JSONArray(prefs.text("history","[]"));}catch(JSONException e){return new JSONArray();}}
+    public static JSONArray parseHistory(String json)throws Exception{
+        JSONArray source=new JSONArray(json), result=new JSONArray();
+        for(int i=0;i<source.length();i++){
+            JSONObject row=source.getJSONObject(i);String role=row.getString("role");
+            if(!role.equals("user")&&!role.equals("assistant"))throw new IOException("不支持的聊天角色。");
+            Object content=row.get("content");if(!(content instanceof String))throw new IOException("聊天正文格式不正确。");
+            if(i>=Math.max(0,source.length()-200))result.put(message(role,(String)content));
+        }
+        return result;
+    }
     public static JSONObject message(String role,String text)throws JSONException{return new JSONObject().put("role",role).put("content",text);}
     public synchronized void saveRound(String user,String assistant)throws Exception{
         JSONArray old=history(), list=new JSONArray();int start=Math.max(0,old.length()-198);
@@ -117,7 +117,11 @@ public final class PetApi {
         messages.put(message("system",system));
         if(memory){JSONArray h=history();int rounds=Math.max(0,Math.min(50,prefs.number("memory_rounds",5)));for(int i=Math.max(0,h.length()-2*rounds);i<h.length();i++)messages.put(h.get(i));}
         messages.put(message("user",text));
-        JSONObject body=new JSONObject().put("model",prefs.text("model","deepseek-flash")).put("messages",messages).put("stream",false).put("max_tokens",1024);
+        String model=prefs.text("model","deepseek-flash").trim();
+        if(model.isEmpty())throw new IOException("请先填写模型名称。");
+        JSONObject body=new JSONObject().put("model",model).put("messages",messages).put("stream",false);
+        String limit=prefs.text("token_parameter","max_tokens");
+        if(limit.equals("max_tokens")||limit.equals("max_completion_tokens"))body.put(limit,1024);
         if(new URI(base).getHost().equals("api.deepseek.com"))body.put("thinking",new JSONObject().put("type","disabled"));
         JSONObject r=request("POST",endpoint(base,"/chat/completions"),key,body);
         try{
@@ -126,6 +130,7 @@ public final class PetApi {
             String reply=contentText(message);
             if(reply.isEmpty()){
                 String finish=choice.optString("finish_reason","");
+                if(!Arrays.asList("length","stop","content_filter","tool_calls").contains(finish))finish="";
                 throw new IOException("模型没有返回正文"+(finish.isEmpty()?"":"（finish_reason="+finish+"）")+"，请换一个模型或重试。");
             }
             return reply;

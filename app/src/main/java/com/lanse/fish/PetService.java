@@ -149,7 +149,7 @@ public final class PetService extends Service {
 
     private void fallbackMeasureScreen() {
         Point p = new Point();
-        windows.getDefaultDisplay().getSize(p);
+        windows.getDefaultDisplay().getRealSize(p);
         screenWidth = Math.max(1, p.x);
         screenHeight = Math.max(1, p.y);
         displayBounds.set(0, 0, screenWidth, screenHeight);
@@ -172,9 +172,9 @@ public final class PetService extends Service {
         screenRefreshTask = () -> {
             screenRefreshTask = null;
             int oldWidth = screenWidth, oldHeight = screenHeight;
+            for (Pet p : pets) p.save();
             measureScreen();
             if (oldWidth != screenWidth || oldHeight != screenHeight) {
-                for (Pet p : pets) p.save();
                 rebuild(false);
             }
         };
@@ -186,9 +186,15 @@ public final class PetService extends Service {
     private WindowManager.LayoutParams params(int w, int h) {
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(w, h,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT);
         lp.gravity = Gravity.TOP | Gravity.LEFT;
+        lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        if (Build.VERSION.SDK_INT >= 30) {
+            lp.setFitInsetsTypes(0);
+            lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+        }
         return lp;
     }
 
@@ -272,6 +278,7 @@ public final class PetService extends Service {
         final ArrayDeque<Motion> bag = new ArrayDeque<>();
         final ArrayDeque<String> recent = new ArrayDeque<>();
         String workState;
+        String lastSchedule = "";
         Edge edge = Edge.NONE;
         Runnable autoTask;
         final Runnable hold = () -> { if (!moved) { longPressed = true; menu(this); } };
@@ -352,12 +359,20 @@ public final class PetService extends Service {
 
         float anchorX() {
             if (motion == null) return lp.x + lp.width * 0.5f;
-            return lp.x + (ANCHOR_X - motion.x0()) * canvasW;
+            float local = (ANCHOR_X - motion.x0()) * canvasW + pad;
+            return lp.x + (view.getScaleX() < 0 ? lp.width - local : local);
         }
 
         float anchorY() {
             if (motion == null) return lp.y + lp.height * 0.9f;
-            return lp.y + (ANCHOR_Y - motion.y0()) * canvasH;
+            return lp.y + (ANCHOR_Y - motion.y0()) * canvasH + pad;
+        }
+
+        void face(float direction) {
+            float ax = anchorX();
+            view.setScaleX(direction);
+            lp.x += Math.round(ax - anchorX());
+            clamp(); refreshEdge(); update();
         }
 
         void start() {
@@ -377,14 +392,15 @@ public final class PetService extends Service {
             if (m == null) return;
             if (dragging && !allowWhileDragging) return;
             cancelAuto();
+            interruptedEnd = false;
             Edge beforeEdge = edge;
             float ax = anchorX(), ay = anchorY();
             int[] win = windowSize(m);
             lp.width = win[0]; lp.height = win[1];
-            if (beforeEdge == Edge.LEFT) lp.x = 0;
-            else if (beforeEdge == Edge.RIGHT) lp.x = Math.max(0, screenWidth - lp.width);
-            else lp.x = Math.round(ax - (ANCHOR_X - m.x0()) * canvasW);
-            lp.y = Math.round(ay - (ANCHOR_Y - m.y0()) * canvasH);
+            if (!allowWhileDragging && beforeEdge == Edge.LEFT) lp.x = 0;
+            else if (!allowWhileDragging && beforeEdge == Edge.RIGHT) lp.x = Math.max(0, screenWidth - lp.width);
+            else lp.x = Math.round(ax - (ANCHOR_X - m.x0()) * canvasW - pad);
+            lp.y = Math.round(ay - (ANCHOR_Y - m.y0()) * canvasH - pad);
             clamp();
             refreshEdge();
             if (edge != Edge.NONE) snapToEdge();
@@ -412,6 +428,10 @@ public final class PetService extends Service {
                 walkUntil = 0;
                 view.setScaleX(1);
             }
+            if (beforeEdge == Edge.NONE || allowWhileDragging) {
+                lp.x += Math.round(ax - anchorX());
+                clamp(); refreshEdge(); update();
+            }
             final int generation = ++playGeneration;
             view.play(m, () -> onEnd(generation));
             logPet("play " + m.name() + " beforeEdge=" + beforeEdge);
@@ -423,12 +443,27 @@ public final class PetService extends Service {
 
         void onEnd(int generation) {
             if (destroyed || generation != playGeneration) return;
-            if (dragging) { interruptedEnd = true; manualPlay = false; return; }
+            interruptedEnd = true;
+            manualPlay = false;
+            resumeCompleted();
+        }
+
+        // Completion survives drag, menu and screen-off. Only starting a new
+        // clip clears it, so canceling a pending timer cannot lose the chain.
+        void resumeCompleted() {
+            if (!interruptedEnd || destroyed || !screenOn || dragging || menuOpen) return;
+            cancelAuto();
             if (workHold && workState != null) {
-                handler.postDelayed(() -> { if (!destroyed && workHold) play(catalog.workMotion(workState), true, false); }, 250);
+                final int generation = playGeneration;
+                autoTask = () -> {
+                    autoTask = null;
+                    if (!destroyed && screenOn && !dragging && !menuOpen && workHold
+                            && interruptedEnd && generation == playGeneration)
+                        play(catalog.workMotion(workState), true, false);
+                };
+                handler.postDelayed(autoTask, 250);
                 return;
             }
-            if (manualPlay) { manualPlay = false; if (prefs.flag("auto_play", true)) scheduleNext(); return; }
             if (prefs.flag("auto_play", true)) scheduleNext();
             else vx = vy = 0;
         }
@@ -448,6 +483,17 @@ public final class PetService extends Service {
         }
 
         void playNext(boolean initial) {
+            if (prefs.flag("schedule", true)) {
+                Calendar now = Calendar.getInstance();
+                int hour = now.get(Calendar.HOUR_OF_DAY);
+                String period = hour < 6 || hour >= 23 ? "night" : hour < 14 && hour >= 11 ? "lunch" : hour >= 18 && hour < 20 ? "dinner" : "";
+                String key = now.get(Calendar.YEAR) + ":" + now.get(Calendar.DAY_OF_YEAR) + ":" + period;
+                if (!period.isEmpty() && !lastSchedule.equals(key)) {
+                    lastSchedule = key;
+                    AnimationCatalog.Motion timed = catalog.scheduled(hour, random);
+                    if (timed != null) { play(timed, false, initial); return; }
+                }
+            }
             AnimationCatalog.Motion m = catalog.nextAuto(random, recent, motion == null ? null : motion.id(), bag);
             if (m == null) return;
             recent.addLast(m.id());
@@ -488,8 +534,15 @@ public final class PetService extends Service {
 
         void pause(boolean value) {
             view.pause(value);
-            if (value) cancelAuto();
-            else if (!manualPlay && !workHold) scheduleNext();
+            if (value) {
+                cancelAuto();
+                handler.removeCallbacks(hold);
+                dragging = false;
+                view.animate().cancel();
+                view.setScaleY(1f);
+                vx = vy = 0;
+            }
+            else resumeCompleted();
         }
 
         void tap() {
@@ -542,7 +595,7 @@ public final class PetService extends Service {
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN -> {
                     hideMenu(); hideBubble(); cancelAuto();
-                    vx = vy = 0; dragging = true; moved = longPressed = false; interruptedEnd = false;
+                    vx = vy = 0; dragging = true; moved = longPressed = false;
                     walkUntil = 0;
                     downX = e.getRawX(); downY = e.getRawY();
                     startX = lp.x; startY = lp.y;
@@ -563,12 +616,13 @@ public final class PetService extends Service {
                         // clip, not permission to change the drag position.
                         AnimationCatalog.Motion pickup = catalog.match("被鼠标拖拽悬空反馈");
                         if (pickup != null) {
+                            // Capture the intended body position before changing
+                            // crops. Keep the original finger origin: the first
+                            // MOVE may already contain a large coalesced delta.
+                            float originX = anchorX(), originY = anchorY();
                             playWhileDragging(pickup);
-                            // play() changed the crop and kept the body anchor. Rebase
-                            // the drag origin to the new window/finger, otherwise the
-                            // old crop origin would add a 20-30dp jump.
-                            startX = lp.x; startY = lp.y;
-                            downX = e.getRawX(); downY = e.getRawY();
+                            startX = originX - (ANCHOR_X - pickup.x0()) * canvasW - pad;
+                            startY = originY - (ANCHOR_Y - pickup.y0()) * canvasH - pad;
                         }
                     }
                     if (moved && !prefs.flag("fixed", false)) {
@@ -606,7 +660,7 @@ public final class PetService extends Service {
                                 walkUntil = 0;
                                 if (edge == Edge.LEFT && vx < 0) vx = 0;
                                 if (edge == Edge.RIGHT && vx > 0) vx = 0;
-                                if (vx != 0) view.setScaleX(vx < 0 ? 1 : -1);
+                                if (vx != 0) face(vx < 0 ? 1 : -1);
                             } else if (prefs.flag("auto_play", true)) {
                                 scheduleNext();
                             } else {
@@ -622,11 +676,7 @@ public final class PetService extends Service {
                         if (moved) save();
                         // If the current clip ended while the finger was down, its
                         // callback was deliberately skipped; resume rotation now.
-                        if (interruptedEnd && prefs.flag("auto_play", true) && !workHold && !menuOpen) {
-                            interruptedEnd = false;
-                            manualPlay = false;
-                            scheduleNext();
-                        }
+                        resumeCompleted();
                         logPet("cancel raw=" + e.getRawX() + "," + e.getRawY() + " edge=" + edge + " interrupted=" + interruptedEnd);
                     }
                     return true;
@@ -804,7 +854,7 @@ public final class PetService extends Service {
         menu = null;
         if (menuPet != null) {
             menuPet.menuOpen = false;
-            if (!menuPet.workHold && !menuPet.manualPlay && prefs.flag("auto_play", true)) menuPet.scheduleNext();
+            menuPet.resumeCompleted();
             menuPet = null;
         }
         menuPage = "root"; menuCategory = "";

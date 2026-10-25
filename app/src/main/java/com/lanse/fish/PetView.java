@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.ImageView;
+import java.lang.ref.WeakReference;
 import java.util.concurrent.*;
 
 /**
@@ -25,15 +26,42 @@ public final class PetView extends ImageView {
     private static final int CANVAS_H = 270;
     private final Handler main = new Handler(Looper.getMainLooper());
     private int generation;
-    private boolean paused;
+    private boolean paused, completed;
+    private Future<?> pendingDecode;
     private Runnable endCallback;
+    private String loaded = "";
+    private CompletionObserver observer;
     public String current = "";
-    private final Animatable2.AnimationCallback callback = new Animatable2.AnimationCallback() {
-        @Override public void onAnimationEnd(Drawable drawable) {
-            Runnable run = endCallback;
-            if (run != null) run.run();
+
+    private void finish(int request) {
+        if (request != generation || completed) return;
+        completed = true;
+        Runnable run = endCallback;
+        endCallback = null;
+        if (run != null) run.run();
+    }
+
+    // Android can already have posted an end event when stop/detach happens.
+    // Clearing its callback list then crashes inside the framework's queued
+    // runnable. Keep one weak observer per drawable; invalidate our ownership.
+    private static final class CompletionObserver extends Animatable2.AnimationCallback {
+        final WeakReference<PetView> owner;
+        int request;
+        CompletionObserver(PetView view, int request) {
+            owner = new WeakReference<>(view); this.request = request;
         }
-    };
+        @Override public void onAnimationEnd(Drawable ended) {
+            PetView view = owner.get();
+            if (view != null && view.observer == this && ended == view.getDrawable()
+                    && !view.paused && !((AnimatedImageDrawable) ended).isRunning())
+                view.finish(request);
+        }
+    }
+
+    private void observe(AnimatedImageDrawable drawable, int request) {
+        observer = new CompletionObserver(this, request);
+        drawable.registerAnimationCallback(observer);
+    }
 
     public PetView(Context c) {
         super(c);
@@ -63,20 +91,22 @@ public final class PetView extends ImageView {
     public void play(AnimationCatalog.Motion motion, Runnable onEnd) {
         if (motion == null) return;
         final int request = ++generation;
+        if (pendingDecode != null) pendingDecode.cancel(false);
+        completed = false;
         endCallback = onEnd;
         setContentDescription(motion.name());
+        current = motion.id();
         // Replaying the same clip (e.g. a held local work state) restarts the
         // existing drawable instead of decoding the WebP again.
-        if (motion.id().equals(current) && getDrawable() instanceof AnimatedImageDrawable same) {
+        if (observer != null && motion.id().equals(loaded) && getDrawable() instanceof AnimatedImageDrawable same) {
             same.stop();
             same.setRepeatCount(0);
-            same.clearAnimationCallbacks();
-            same.registerAnimationCallback(callback);
+            observer.request = request;
             if (!paused) same.start();
             return;
         }
-        current = motion.id();
-        DECODER.execute(() -> {
+        stopDrawable();
+        pendingDecode = DECODER.submit(() -> {
             try {
                 Drawable drawable = ImageDecoder.decodeDrawable(
                     ImageDecoder.createSource(getContext().getAssets(), motion.file()),
@@ -86,10 +116,10 @@ public final class PetView extends ImageView {
                     if (request != generation) return;
                     stopDrawable();
                     setImageDrawable(drawable);
+                    loaded = motion.id();
                     if (drawable instanceof AnimatedImageDrawable a) {
                         a.setRepeatCount(0);
-                        a.clearAnimationCallbacks();
-                        a.registerAnimationCallback(callback);
+                        observe(a, request);
                         if (!paused) a.start();
                     }
                 });
@@ -99,8 +129,7 @@ public final class PetView extends ImageView {
                     current = "";
                     setContentDescription("动画加载失败：" + motion.name());
                     // Notify the controller so a broken clip cannot stall rotation.
-                    Runnable run = endCallback;
-                    if (run != null) run.run();
+                    finish(request);
                 });
             }
         });
@@ -109,27 +138,30 @@ public final class PetView extends ImageView {
     public void pause(boolean value) {
         paused = value;
         if (getDrawable() instanceof AnimatedImageDrawable a) {
-            if (value) a.stop(); else a.start();
+            if (value) a.stop(); else if (!completed) a.start();
         }
     }
 
     private void stopDrawable() {
+        observer = null;
         if (getDrawable() instanceof AnimatedImageDrawable a) {
-            a.clearAnimationCallbacks();
             a.stop();
         }
     }
 
     @Override protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        if (!paused && getDrawable() instanceof AnimatedImageDrawable a) a.start();
+        if (!paused && !completed && getDrawable() instanceof AnimatedImageDrawable a) a.start();
     }
 
     @Override protected void onDetachedFromWindow() {
         generation++;
+        if (pendingDecode != null) pendingDecode.cancel(false);
+        endCallback = null;
         stopDrawable();
         setImageDrawable(null);
         current = "";
+        loaded = "";
         super.onDetachedFromWindow();
     }
 }

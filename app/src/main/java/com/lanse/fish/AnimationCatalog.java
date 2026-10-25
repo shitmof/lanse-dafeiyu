@@ -109,6 +109,13 @@ public final class AnimationCatalog {
         return Collections.unmodifiableList(movePool);
     }
 
+    public Motion scheduled(int hour, Random random) {
+        if (hour < 6 || hour >= 23) return match("小憩");
+        if (hour >= 11 && hour < 14) return match("午餐");
+        if (hour >= 18 && hour < 20) return match("吃白饭");
+        return null;
+    }
+
     /**
      * Pick the next ordinary animation from the per-pet shuffle bag.
      * A full bag always contains all 85 clips, so a complete cycle covers the
