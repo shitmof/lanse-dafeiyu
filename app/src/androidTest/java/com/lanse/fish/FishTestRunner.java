@@ -34,6 +34,11 @@ public final class FishTestRunner extends Instrumentation {
             }
             log("PASS: all 106 original animations decode, animate, preserve transparent background, and contain visible pixels.");
             check(catalog.scheduled(2,new Random()).name().contains("小憩"),"Night schedule");check(catalog.scheduled(12,new Random()).name().contains("午餐"),"Lunch schedule");
+            ArrayDeque<AnimationCatalog.Motion> bag=new ArrayDeque<>();ArrayDeque<String> recent=new ArrayDeque<>();Set<String> seen=new HashSet<>();String current=null;
+            for(int i=0;i<catalog.autoPool().size();i++){AnimationCatalog.Motion m=catalog.nextAuto(new Random(i),recent,current,bag);check(seen.add(m.id()),"No repeated ordinary animation in one complete cycle");current=m.id();recent.add(m.id());if(recent.size()>6)recent.removeFirst();}
+            check(seen.size()==catalog.autoPool().size(),"Complete automatic animation coverage");
+            check(PetApi.parseHistory("[{\"role\":\"user\",\"content\":\"旧版导出\"}]").length()==1,"Import previous exported chat");
+            boolean badImport=false;try{PetApi.parseHistory("[{\"role\":\"system\",\"content\":\"invalid\"}]");}catch(Exception e){badImport=true;}check(badImport,"Import cannot insert system instructions");
             prefs.secret("test_secret","test-value-not-a-real-credential");check(prefs.secret("test_secret").equals("test-value-not-a-real-credential"),"KeyStore roundtrip");check(!prefs.text("test_secret","").contains("test-value"),"No cleartext credential");prefs.secret("test_secret","");
             boolean rejected=false;try{PetApi.validateBase("http://public.example.com");}catch(Exception e){rejected=true;}check(rejected,"Block public cleartext");
             rejected=false;try{PetApi.validateBase("https://user:password@example.com");}catch(Exception e){rejected=true;}check(rejected,"Block URL embedded credentials");PetApi.validateBase("http://192.168.1.3:7341");
@@ -42,7 +47,9 @@ public final class FishTestRunner extends Instrumentation {
             try(MockServer mock=new MockServer()){
                 prefs.put("mode","ai");prefs.put("api_url","http://127.0.0.1:"+mock.port());prefs.put("model","fixture-model");prefs.secret("api_key","fixture-key");
                 String reply=new PetApi(c).chat("测试联网对话");check(reply.equals("这是测试服务器的回复。"),"Real HTTP chat roundtrip");check(mock.lastBody.contains("测试联网对话"),"Request carries text");check(mock.lastBody.contains("system"),"Persona passed");check(mock.auth.equals("Bearer fixture-key"),"Authorization header");
-                check(new PetApi(c).testConnection().contains("可用"),"Models endpoint");
+                check(new PetApi(c).testConnection().contains("不代表聊天可用"),"Models check is not chat proof");
+                prefs.put("token_parameter","max_completion_tokens");new PetApi(c).testChat("长度兼容测试");
+                check(new JSONObject(mock.lastBody).has("max_completion_tokens")&&!new JSONObject(mock.lastBody).has("max_tokens"),"Alternate output-limit field");prefs.put("token_parameter","max_tokens");
                 prefs.put("dsh_url","http://127.0.0.1:"+mock.port());prefs.put("mode","dsh");check(new PetApi(c).state().has("sections"),"DSH state contract");check(new PetApi(c).chat("来自手机").equals("DSH fixture reply"),"DSH chat contract");
                 mock.fail=true;int before=new PetApi(c).history().length();boolean failed=false;try{new PetApi(c).chat("should fail");}catch(IOException e){failed=true;}check(failed,"401 surfaces as failure");check(new PetApi(c).history().length()==before,"Failed request does not persist a fake answer");
             }
@@ -51,7 +58,16 @@ public final class FishTestRunner extends Instrumentation {
             Intent launch=new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);Activity activity=startActivitySync(launch);waitForIdleSync();
             PetView[] early=new PetView[1];runOnMainSync(()->{early[0]=new PetView(activity);early[0].play(catalog.match("吃白饭"));});SystemClock.sleep(400);
             runOnMainSync(()->activity.addContentView(early[0],new android.view.ViewGroup.LayoutParams(390,219)));SystemClock.sleep(400);check(early[0].getDrawable() instanceof AnimatedImageDrawable,"Decode finishing before window attachment is still displayed");
-            runOnMainSync(()->((android.view.ViewGroup)early[0].getParent()).removeView(early[0]));
+            int[] finished={0};
+            // stop() queues an end event. Restart must ignore that old event;
+            // detach must not clear Android's list before that event executes.
+            runOnMainSync(()->early[0].play(catalog.match("吃白饭"),()->finished[0]++));
+            waitForIdleSync();check(finished[0]==0,"Restart ignores queued stop completion");
+            runOnMainSync(()->early[0].pause(true));waitForIdleSync();
+            check(finished[0]==0,"Pausing is not natural animation completion");
+            runOnMainSync(()->{early[0].pause(false);((AnimatedImageDrawable)early[0].getDrawable()).stop();((android.view.ViewGroup)early[0].getParent()).removeView(early[0]);});
+            waitForIdleSync();check(finished[0]==0,"Queued end after detach neither crashes nor completes replaced clip");
+            log("PASS: animated drawable restart, pause and queued-end detach regression.");
             runOnMainSync(()->PetService.command(c,PetService.REFRESH,""));SystemClock.sleep(1800);check(PetService.running,"Overlay foreground service starts");
             AccessibilityServiceInfo info=getUiAutomation().getServiceInfo();info.flags|=AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;getUiAutomation().setServiceInfo(info);
             getUiAutomation().executeShellCommand("input keyevent 3").close();SystemClock.sleep(700);check(PetService.running,"Service survives Home");check(overlayCount()==1,"Exactly one visible overlay; no pending-window leak");

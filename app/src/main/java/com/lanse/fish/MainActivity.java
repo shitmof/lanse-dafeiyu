@@ -26,7 +26,7 @@ public final class MainActivity extends Activity {
     private Prefs prefs;
     private AnimationCatalog catalog;
     private LinearLayout root,content,nav;
-    private String page="home",chatDraft="";
+    private String page="home",chatDraft="",chatError="";
     private PetView preview;
     private boolean pendingStart,sending;
     private final ExecutorService io=Executors.newSingleThreadExecutor();
@@ -41,11 +41,11 @@ public final class MainActivity extends Activity {
         super.onCreate(state);prefs=new Prefs(this);
         displayFont=Typeface.create("serif",Typeface.BOLD);
         try{catalog=new AnimationCatalog(this);}catch(Exception e){TextView error=new TextView(this);error.setText("动画资源不完整，请安装完整版本 APK。");setContentView(error);return;}
-        if(state!=null){page=state.getString("page","home");pendingStart=state.getBoolean("pendingStart",false);chatDraft=state.getString("draft","");}
+        if(state!=null){page=state.getString("page","home");pendingStart=state.getBoolean("pendingStart",false);chatDraft=state.getString("draft","");chatError=state.getString("chatError","");if(state.getBoolean("sending",false))chatError="上次发送尚未确认完成，请先检查聊天记录再决定是否重试。";}
         else if(getIntent().hasExtra("page"))page=getIntent().getStringExtra("page");
         render();
     }
-    @Override protected void onSaveInstanceState(Bundle s){super.onSaveInstanceState(s);s.putString("page",page);s.putBoolean("pendingStart",pendingStart);s.putString("draft",composer==null?chatDraft:composer.getText().toString());}
+    @Override protected void onSaveInstanceState(Bundle s){super.onSaveInstanceState(s);s.putString("chatError",chatError);s.putBoolean("sending",sending);s.putString("page",page);s.putBoolean("pendingStart",pendingStart);s.putString("draft",composer==null?chatDraft:composer.getText().toString());}
     @Override protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);page=i.getStringExtra("page");if(page==null)page="home";render();}
     @Override protected void onResume(){super.onResume();for(PetView p:previews)p.pause(false);if(catalog==null)return;
         if(pendingStart){pendingStart=false;if(Settings.canDrawOverlays(this))startPet();}
@@ -137,10 +137,18 @@ public final class MainActivity extends Activity {
     private AdapterView.OnItemSelectedListener selection(Runnable r){return new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> a,View v,int pos,long id){r.run();}public void onNothingSelected(AdapterView<?> a){}};}
     private void chat(){
         LinearLayout heading=column();heading.setPadding(dp(22),dp(24),dp(22),0);content.addView(heading);title(heading,"LITTLE TALKS · 03","把今天说给我听",prefs.text("mode","offline").equals("offline")?"离线陪伴 · 固定回应，连接 AI 后可自由聊天":"已选联网对话 · 消息将发送至你配置的服务");
+        String mode=prefs.text("mode","offline"),where="离线";
+        if(mode.equals("ai")){String host=prefs.text("api_url","https://api.deepseek.com");try{host=new java.net.URI(host).getHost();}catch(Exception ignored){}where="AI · "+host+" · "+prefs.text("model","deepseek-flash");}
+        else if(mode.equals("dsh"))where="DSH · "+prefs.text("dsh_url","未填写地址");
+        heading.addView(text("模式："+where+" · 密钥只保存在本机",12,MUTED));
         chatScroll=new ScrollView(this);chatScroll.setFillViewport(true);messages=column();messages.setPadding(dp(20),0,dp(20),dp(12));chatScroll.addView(messages);content.addView(chatScroll,new LinearLayout.LayoutParams(-1,0,1));
         JSONArray history=new PetApi(this).history();
         if(history.length()==0){LinearLayout welcome=card(messages);pet(welcome,150,"元气挥手");welcome.addView(text("我在呢。吃饭、发呆，或者随便聊聊，都可以。",16,INK));}
         else for(int i=0;i<history.length();i++){JSONObject m=history.optJSONObject(i);if(m!=null)chatBubble(m.optString("content"),m.optString("role").equals("user"));}
+        if(!chatError.isEmpty()){
+            LinearLayout err=card(messages);err.addView(text("上次发送失败："+chatError,14,0xFF945537));gap(err,8);
+            err.addView(button("重试",false,this::sendChat));
+        }
         LinearLayout input=row();input.setPadding(dp(16),dp(10),dp(16),dp(10));composer=new EditText(this);composer.setHint("说点什么……");composer.setText(chatDraft);composer.setTextSize(15);composer.setTextColor(INK);composer.setMaxLines(4);composer.setBackground(bg(Color.WHITE,18));composer.setPadding(dp(14),dp(12),dp(14),dp(12));composer.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);input.addView(composer,new LinearLayout.LayoutParams(0,-2,1));
         send=button(sending?"等待…":"发送",true,this::sendChat);send.setEnabled(!sending);LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(76),dp(50));bp.leftMargin=dp(8);input.addView(send,bp);content.addView(input);chatScroll.post(()->chatScroll.fullScroll(View.FOCUS_DOWN));
     }
@@ -154,12 +162,26 @@ public final class MainActivity extends Activity {
     }
     private void sendChat(){
         if(sending||composer==null)return;String question=composer.getText().toString().trim();if(question.isEmpty())return;
-        sending=true;send.setEnabled(false);send.setText("等待…");composer.setEnabled(false);
+        chatError="";sending=true;send.setEnabled(false);send.setText("等待…");composer.setEnabled(false);
         io.execute(()->{try{String reply=new PetApi(this).chat(question);runOnUiThread(()->{
-            if(isDestroyed())return;sending=false;chatDraft="";if(composer!=null)composer.setText("");
+            if(isDestroyed())return;sending=false;chatDraft="";chatError="";if(composer!=null)composer.setText("");
             if(PetService.running)PetService.command(this,PetService.SAY,reply);
             if(page.equals("chat"))render();
-        });}catch(Exception e){runOnUiThread(()->{if(isDestroyed())return;sending=false;toast(safeError(e));if(send!=null){send.setEnabled(true);send.setText("重试");}if(composer!=null)composer.setEnabled(true);});}});
+        });}catch(Exception e){runOnUiThread(()->{if(isDestroyed())return;sending=false;chatError=safeError(e);if(page.equals("chat")){if(composer!=null)chatDraft=composer.getText().toString();render();}else toast(chatError);});}});
+    }
+    private void testChatNow(){
+        String mode=prefs.text("mode","offline");
+        if(mode.equals("offline")){toast("当前是离线陪伴模式，请先选择联网对话并保存。");return;}
+        new AlertDialog.Builder(this).setTitle("发送真实测试消息？")
+            .setMessage("将使用当前服务、模型和密钥发送一次真实聊天请求，可能产生费用；不会自动重复。")
+            .setNegativeButton("取消",null)
+            .setPositiveButton("发送",(d,w)->{
+                toast("正在发送测试消息…");
+                io.execute(()->{String message;boolean ok;try{message=new PetApi(this).testChat("你好，这是一次连通性测试，请简短回复。");ok=true;}catch(Exception e){ok=false;message=safeError(e);}
+                    final String resultText=message;final boolean success=ok;
+                    runOnUiThread(()->{if(!isDestroyed())new AlertDialog.Builder(this).setTitle(success?"聊天测试成功":"聊天测试失败").setMessage(resultText).setPositiveButton("好",null).show();});
+                });
+            }).show();
     }
     private String safeError(Exception e){return e instanceof IOException?e.getMessage():"请求未完成，请检查配置后重试。";}
     private EditText field(LinearLayout parent,String label,String hint,String value,boolean secret){
@@ -176,6 +198,7 @@ public final class MainActivity extends Activity {
         section(p,"屏幕上的它");slider(p,"size","宠物画布宽度 · dp",120,420,260);slider(p,"opacity","不透明度 · %",30,100,100);slider(p,"count","宠物数量",1,3,1);
         toggle(p,"wander","自由走动",true);toggle(p,"physics","拖动后甩动与回弹",true);toggle(p,"fixed","固定位置（关闭拖动和走动）",false);toggle(p,"schedule","跟随时间吃饭、休息",true);toggle(p,"whisper","偶尔碎碎念",true);slider(p,"whisper_minutes","碎碎念间隔 · 分钟",1,30,5);
         toggle(p,"auto_play","自动播放动作",true);slider(p,"auto_interval","自动切换最短间隔 · 秒",5,300,15);
+        toggle(p,"debug_log","拖动边界调试日志（仅内部测试）",false);
         toggle(p,"memes","对话显示原版表情包",true);toggle(p,"autostart","重启后恢复陪伴",false);
         gap(p,8);fullButton(p,"后台电池设置",false,this::batterySettings);gap(p,8);p.addView(text("如需长期陪伴，请在手机系统里允许后台运行；部分品牌还需开启自启动。",12,MUTED));
         section(p,"本地陪伴状态");
@@ -191,6 +214,9 @@ public final class MainActivity extends Activity {
         EditText model=field(p,"模型名称","deepseek-flash",prefs.text("model","deepseek-flash"),false);
         EditText key=field(p,"API 密钥","留空保留已存密钥","",true);
         p.addView(text("密钥加密保存在本机。切换 AI 服务地址时请重新填写对应密钥。",12,MUTED));
+        p.addView(text("回复长度参数 · 每次最多请求 1024 token；只有服务不兼容时才切换。",12,MUTED));
+        String[] tokenFields={"max_tokens","max_completion_tokens","none"};
+        Spinner tokenSelect=spinner(p,new String[]{"标准 · max_tokens","新版 · max_completion_tokens","由服务决定上限（可能增加费用）"},Math.max(0,Arrays.asList(tokenFields).indexOf(prefs.text("token_parameter","max_tokens"))));
         toggle(p,"ai_whisper","使用 AI 生成碎碎念（消耗 API 额度）",false);
         toggle(p,"balance_auto","每 30 分钟查看余额",false);
         section(p,"连接 DSH");EditText dsh=field(p,"DSH 服务根地址","http://192.168.1.10:7341",prefs.text("dsh_url",""),false);
@@ -199,18 +225,23 @@ public final class MainActivity extends Activity {
         gap(p,20);
         Runnable save=()->{
             try{
-                String newApi=api.getText().toString().trim(),newDsh=dsh.getText().toString().trim();PetApi.validateBase(newApi);if(!newDsh.isEmpty())PetApi.validateBase(newDsh);
+                String newApi=api.getText().toString().trim(),newDsh=dsh.getText().toString().trim();
+                String modeValue=modes[modeSelect.getSelectedItemPosition()],newModel=model.getText().toString().trim();
+                if(modeValue.equals("ai")&&newModel.isEmpty())throw new IOException("请填写模型名称。");
+                PetApi.validateBase(newApi);if(!newDsh.isEmpty())PetApi.validateBase(newDsh);
                 String newKey=key.getText().toString().trim(),newToken=token.getText().toString().trim();
                 if(!newApi.equals(prefs.text("api_url","https://api.deepseek.com"))){prefs.secret("api_key",newKey);}else if(!newKey.isEmpty())prefs.secret("api_key",newKey);
                 if(!newDsh.equals(prefs.text("dsh_url",""))){prefs.secret("dsh_token",newToken);}else if(!newToken.isEmpty())prefs.secret("dsh_token",newToken);
-                prefs.put("pet_name",name.getText().toString().trim().isEmpty()?"蓝色大肥鱼":name.getText().toString().trim());prefs.put("persona",persona.getText().toString());prefs.put("mode",modes[modeSelect.getSelectedItemPosition()]);prefs.put("api_url",newApi);prefs.put("model",model.getText().toString().trim());prefs.put("dsh_url",newDsh);prefs.put("dsh_pet",petId.getText().toString().trim().isEmpty()?"main":petId.getText().toString().trim());
-                key.setText("");token.setText("");toast("已保存到这台设备。");
+                prefs.put("token_parameter",tokenFields[tokenSelect.getSelectedItemPosition()]);prefs.put("pet_name",name.getText().toString().trim().isEmpty()?"蓝色大肥鱼":name.getText().toString().trim());prefs.put("persona",persona.getText().toString());prefs.put("mode",modeValue);prefs.put("api_url",newApi);prefs.put("model",newModel);prefs.put("dsh_url",newDsh);prefs.put("dsh_pet",petId.getText().toString().trim().isEmpty()?"main":petId.getText().toString().trim());
+                key.setText("");token.setText("");chatError="";toast("已保存到这台设备。");
             }catch(Exception e){toast(safeError(e));throw new IllegalArgumentException("配置未保存");}
         };
         fullButton(p,"保存名字与连接配置",true,()->{try{save.run();}catch(IllegalArgumentException ignored){}});gap(p,10);
-        fullButton(p,"保存并测试连接",false,()->{try{save.run();background(()->new PetApi(this).testConnection());}catch(IllegalArgumentException ignored){}});gap(p,10);
+        fullButton(p,"保存并检查地址与模型列表（不产生聊天）",false,()->{try{save.run();background(()->new PetApi(this).testConnection());}catch(IllegalArgumentException ignored){}});gap(p,10);
+        fullButton(p,"发送真实测试消息（会产生一次模型请求）",false,this::testChatNow);gap(p,10);
         fullButton(p,"查看余额",false,()->background(()->new PetApi(this).balance()));
         section(p,"本机数据");fullButton(p,"导出聊天记录",false,()->startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json").putExtra(Intent.EXTRA_TITLE,"蓝色大肥鱼-聊天记录.json"),40));gap(p,10);
+        fullButton(p,"导入已导出的聊天记录",false,()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json"),41));gap(p,10);
         fullButton(p,"清空本机聊天记录",false,()->new AlertDialog.Builder(this).setTitle("清空聊天记录？").setMessage("仅删除手机内的记录，不会删除 DSH 电脑端记录。").setNegativeButton("保留",null).setPositiveButton("清空",(d,w)->{prefs.put("history","[]");toast("本机聊天记录已清空。");}).show());gap(p,10);
         fullButton(p,"移除已存密钥与令牌",false,()->new AlertDialog.Builder(this).setTitle("移除连接凭据？").setNegativeButton("取消",null).setPositiveButton("移除",(d,w)->{try{prefs.secret("api_key","");prefs.secret("dsh_token","");toast("已移除。");}catch(Exception e){toast("未能移除，请重试。");}}).show());
         section(p,"关于这只鱼");p.addView(text("蓝色大肥鱼 0.1.1\nAndroid 9+ · 基于 dsh-pet 0.3.8\n原作者 PC2005-cloud · 代码 MIT · 素材禁止商用\n完整动画 "+catalog.motions.size()+" 段，随 APK 离线提供。",13,MUTED));gap(p,10);
@@ -221,5 +252,15 @@ public final class MainActivity extends Activity {
     }
     private interface Job{String run()throws Exception;}
     private void background(Job job){toast("正在连接……");io.execute(()->{String result;try{result=job.run();}catch(Exception e){result=safeError(e);}String message=result;runOnUiThread(()->{if(!isDestroyed())new AlertDialog.Builder(this).setTitle("连接结果").setMessage(message).setPositiveButton("好",null).show();});});}
-    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==40&&result==RESULT_OK&&data!=null&&data.getData()!=null){try(OutputStream out=getContentResolver().openOutputStream(data.getData())){if(out==null)throw new IOException();out.write(new PetApi(this).history().toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));toast("聊天记录已导出。");}catch(Exception e){toast("导出失败，请选择可写入的位置。");}}}
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(result!=RESULT_OK||data==null||data.getData()==null)return;
+        if(request==40){try(OutputStream out=getContentResolver().openOutputStream(data.getData())){if(out==null)throw new IOException();out.write(new PetApi(this).history().toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));toast("聊天记录已导出。");}catch(Exception e){toast("导出失败，请选择可写入的位置。");}}
+        if(request==41){try(InputStream in=getContentResolver().openInputStream(data.getData())){
+            if(in==null)throw new IOException();
+            JSONArray imported=PetApi.parseHistory(PetApi.readLimited(in));
+            new AlertDialog.Builder(this).setTitle("导入聊天记录？").setMessage("将用文件中的 "+imported.length()+" 条消息替换本机聊天记录。连接配置和密钥不受影响。")
+                .setNegativeButton("取消",null).setPositiveButton("导入",(d,w)->{prefs.put("history",imported.toString());chatError="";toast("聊天记录已导入。");}).show();
+        }catch(Exception e){toast("无法导入，请选择本应用导出的聊天 JSON 文件（不超过 2MB）。");}}
+    }
 }

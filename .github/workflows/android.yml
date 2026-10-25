@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Controller, API and edge regression tests
+        run: python scripts/test_regressions.py
       - name: Check optional DSH bridge
         run: node scripts/test_bridge.mjs
       - name: Prepare pinned original assets
