@@ -85,6 +85,8 @@ test.2 的 `expandForDrag()` 直接把 `PetView` 本身扩成全屏，再给整�
 - SHA-256 `9dd1fe55a1aedd0bec8e07b78fe35652e654b34e9bc6bdb9dda37cc255abc40e`
 - 证书：Android Debug，SHA-256 `1f6a95c4786f85d1f39deddbf61d0bcc56beb2d9a59f1a3ca43aaf70b8a8391a`
 - versionCode 4 / versionName 0.1.1-test.3
+- GitHub 测试预发布：https://github.com/shitmof/lanse-dafeiyu/releases/tag/v0.1.1-test.3
+- 分支：`deepseek/0.1.1-test.3`；PR：https://github.com/shitmof/lanse-dafeiyu/pull/3（draft，未合并）
 
 不覆盖 `v0.1.0`、`v0.1.1-test.1`、`v0.1.1-test.2`；不合并 main；不生成/替换签名密钥。
 

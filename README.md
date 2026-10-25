@@ -10,7 +10,7 @@
 
 边界回归修复候选在分支 `deepseek/0.1.1-edge-clamp`（**未合并 main，待真机验收**）：[test.2 边界修复记录](docs/0.1.1/test.2边界修复记录.md)；debug 测试预发布 [v0.1.1-test.2](https://github.com/shitmof/lanse-dafeiyu/releases/tag/v0.1.1-test.2)。
 
-test.2 真机验收未通过后，最小修正候选在分支 `deepseek/0.1.1-test.3`（**未合并 main**）：[test.3 修正记录](docs/0.1.1/test.3修正记录.md)。
+test.2 真机验收未通过后，最小修正候选在分支 `deepseek/0.1.1-test.3`（**未合并 main**）：[test.3 修正记录](docs/0.1.1/test.3修正记录.md)；debug 测试预发布 [v0.1.1-test.3](https://github.com/shitmof/lanse-dafeiyu/releases/tag/v0.1.1-test.3)。
 
 仓库源码与 0.1.0 Release 已按用户要求公开；显示名称统一“蓝色大肥鱼”。GitHub 仓库 URL 不支持中文，因此保留原地址，不另起英文产品名。公开不等于取消素材的禁止商用与署名限制。
 
