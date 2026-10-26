@@ -36,6 +36,9 @@ def main():
     text=run([java,'-Dfile.encoding=UTF-8','-cp',str(controller/'classes')+os.pathsep+str(jar),'com.lanse.fish.PetService',ROOT/'app/src/main/assets/catalog.json'])
     (OUT/'controller.json').write_text(text,'utf-8');rows=json.loads(text)
     for r in rows:
+        if 'tap_anchor_delta' in r:assert r['tap_anchor_delta']<=1,r
+        if 'drag_scale_y' in r:
+            assert r['drag_scale_y']==1 and not r['drag_resized'] and not r['drag_changed_clip'],r
         if 'play_calls_after_cancel' in r:assert r['play_calls_after_cancel']==1,r
         if 'play_calls_after_resume' in r:assert r['play_calls_after_resume']==1,r
         if 'cancel_anchor_error' in r:
