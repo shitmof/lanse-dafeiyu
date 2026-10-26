@@ -36,17 +36,20 @@ public class PetService {
     void updateViewLayout(PetView v,LayoutParams lp){}
   }
   static final class Animator {
-    void cancel(){} Animator scaleY(float y){return this;} Animator setDuration(long d){return this;}
+    final PetView owner;Animator(PetView v){owner=v;}
+    void cancel(){} Animator scaleY(float y){owner.scaleY=y;return this;} Animator setDuration(long d){return this;}
     Animator withEndAction(Runnable r){return this;} void start(){}
   }
   static final class PetView {
     interface Click {void click(PetView v);} interface Touch {boolean touch(PetView v,MotionEvent e);}
     Click click;Runnable ended;int playCalls;
-    PetView(PetService s){} void setAlpha(float f){} void setScaleY(float f){} float flip=1; void setScaleX(float f){flip=f;} float getScaleX(){return flip;}
+    float scaleY=1;PetView(PetService s){} void setAlpha(float f){} void setScaleY(float f){scaleY=f;} float flip=1; void setScaleX(float f){flip=f;} float getScaleX(){return flip;}
     void setCrop(Motion m,int w,int h,int p){} void setOnClickListener(Click c){click=c;}
     void setOnTouchListener(Touch t){} void play(Motion m,Runnable end){ended=end;playCalls++;}
+    void play(Motion m,Runnable ready,Runnable end){ready.run();ended=end;playCalls++;}
+    void setGestureActive(boolean active){} void setDragLoop(boolean loop){} void postOnAnimation(Runnable r){r.run();}
     boolean performClick(){click.click(this);return true;} void pause(boolean b){}
-    Animator animate(){return new Animator();} boolean isAttachedToWindow(){return true;}
+    Animator animate(){return new Animator(this);} boolean isAttachedToWindow(){return true;}
     void getLocationOnScreen(int[] a){} int getWidth(){return 160;} int getHeight(){return 180;}
   }
   static final class MotionEvent {
@@ -61,7 +64,7 @@ public class PetService {
   public static void main(String[] args)throws Exception {
     JSONArray rows=new JSONArray();
     for(boolean hold:new boolean[]{false,true})for(boolean endFirst:new boolean[]{false,true}){
-      PetService s=env(args[0]);Pet p=s.new Pet(0);
+      PetService s=env(args[0]);Pet p=s.new Pet(0);p.start();
       if(hold)p.setWork("working",true);
       p.touch(event(0,500,700,0));p.touch(event(2,530,700,100));
       if(endFirst)p.view.ended.run();
@@ -94,6 +97,17 @@ public class PetService {
       p.view.ended.run();int before=p.view.playCalls;
       p.menuOpen=false;e.screenOn=true;p.resumeCompleted();e.handler.drainOnce();
       rows.put(new JSONObject().put("scenario","work_resume_"+obstacle).put("play_calls_after_resume",p.view.playCalls-before));
+    }
+    for(Edge side:new Edge[]{Edge.NONE,Edge.LEFT,Edge.RIGHT}){
+      PetService s=env(args[0]);Pet p=s.new Pet(0);p.play(s.catalog.match("蓝鲸现世"),false,false);
+      p.lp.x=side==Edge.LEFT?0:side==Edge.RIGHT?p.maxX():300;p.lp.y=400;p.refreshEdge();
+      float ax=p.anchorX(),ay=p.anchorY();int width=p.lp.width,height=p.lp.height;
+      p.touch(event(0,500,600,0));p.touch(event(1,500,600,100));
+      rows.put(new JSONObject().put("scenario","stationary_tap_"+side).put("tap_anchor_delta",Math.hypot(p.anchorX()-ax,p.anchorY()-ay)));
+      width=p.lp.width;height=p.lp.height;String beforeMotion=p.motion.id();int beforeCalls=p.view.playCalls;
+      p.touch(event(0,500,600,200));p.touch(event(2,540,630,400));
+      rows.put(new JSONObject().put("scenario","gesture_projection_"+side).put("drag_scale_y",p.view.scaleY)
+        .put("drag_resized",width!=p.lp.width||height!=p.lp.height).put("drag_changed_clip",!beforeMotion.equals(p.motion.id())));
     }
     System.out.println(rows.toString(2));
   }

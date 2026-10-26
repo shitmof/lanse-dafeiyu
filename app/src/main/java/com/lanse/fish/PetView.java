@@ -26,7 +26,8 @@ public final class PetView extends ImageView {
     private static final int CANVAS_H = 270;
     private final Handler main = new Handler(Looper.getMainLooper());
     private int generation;
-    private boolean paused, completed;
+    private boolean paused, completed, gestureActive, dragLoop;
+    private Runnable pendingCommit;
     private Future<?> pendingDecode;
     private Runnable endCallback;
     private String loaded = "";
@@ -34,10 +35,9 @@ public final class PetView extends ImageView {
     public String current = "";
 
     private void finish(int request) {
-        if (request != generation || completed) return;
+        if (request != generation || completed || dragLoop) return;
         completed = true;
         Runnable run = endCallback;
-        endCallback = null;
         if (run != null) run.run();
     }
 
@@ -89,40 +89,52 @@ public final class PetView extends ImageView {
     public void play(AnimationCatalog.Motion motion) { play(motion, null); }
 
     public void play(AnimationCatalog.Motion motion, Runnable onEnd) {
+        play(motion, null, onEnd);
+    }
+
+    /** Drawable and crop/window geometry are committed together on the UI thread. */
+    public void play(AnimationCatalog.Motion motion, Runnable onReady, Runnable onEnd) {
         if (motion == null) return;
         final int request = ++generation;
         if (pendingDecode != null) pendingDecode.cancel(false);
+        pendingCommit = null;
         completed = false;
         endCallback = onEnd;
-        setContentDescription(motion.name());
-        current = motion.id();
         // Replaying the same clip (e.g. a held local work state) restarts the
         // existing drawable instead of decoding the WebP again.
         if (observer != null && motion.id().equals(loaded) && getDrawable() instanceof AnimatedImageDrawable same) {
-            same.stop();
-            same.setRepeatCount(0);
-            observer.request = request;
-            if (!paused) same.start();
+            commitWhenReady(() -> {
+                if (request != generation) return;
+                same.stop();
+                same.setRepeatCount(dragLoop ? AnimatedImageDrawable.REPEAT_INFINITE : 0);
+                observer.request = request;
+                if (onReady != null) onReady.run();
+                if (!paused) same.start();
+            });
             return;
         }
-        stopDrawable();
+        // Keep the currently displayed clip running while its replacement loads.
+        // A MOVE must never see an old frame through a new clip's crop matrix.
         pendingDecode = DECODER.submit(() -> {
             try {
                 Drawable drawable = ImageDecoder.decodeDrawable(
                     ImageDecoder.createSource(getContext().getAssets(), motion.file()),
                     (decoder, info, source) -> decoder.setTargetSize(info.getSize().getWidth(), info.getSize().getHeight())
                 );
-                main.post(() -> {
+                main.post(() -> { if (request != generation) return; commitWhenReady(() -> {
                     if (request != generation) return;
                     stopDrawable();
                     setImageDrawable(drawable);
                     loaded = motion.id();
+                    current = motion.id();
+                    setContentDescription(motion.name());
+                    if (onReady != null) onReady.run();
                     if (drawable instanceof AnimatedImageDrawable a) {
-                        a.setRepeatCount(0);
+                        a.setRepeatCount(dragLoop ? AnimatedImageDrawable.REPEAT_INFINITE : 0);
                         observe(a, request);
                         if (!paused) a.start();
                     }
-                });
+                }); });
             } catch (Exception e) {
                 main.post(() -> {
                     if (request != generation) return;
@@ -133,6 +145,26 @@ public final class PetView extends ImageView {
                 });
             }
         });
+    }
+
+    private void commitWhenReady(Runnable commit) {
+        if (gestureActive) pendingCommit = commit;
+        else commit.run();
+    }
+
+    public void setGestureActive(boolean active) {
+        gestureActive = active;
+        if (!active && pendingCommit != null) {
+            Runnable commit = pendingCommit; pendingCommit = null; commit.run();
+        }
+    }
+
+    public void setDragLoop(boolean loop) {
+        dragLoop = loop;
+        if (getDrawable() instanceof AnimatedImageDrawable a) {
+            a.setRepeatCount(loop ? AnimatedImageDrawable.REPEAT_INFINITE : 0);
+            if (loop) { completed = false; if (!paused && !a.isRunning()) a.start(); }
+        }
     }
 
     public void pause(boolean value) {
@@ -158,6 +190,8 @@ public final class PetView extends ImageView {
         generation++;
         if (pendingDecode != null) pendingDecode.cancel(false);
         endCallback = null;
+        pendingCommit = null;
+        gestureActive = dragLoop = false;
         stopDrawable();
         setImageDrawable(null);
         current = "";

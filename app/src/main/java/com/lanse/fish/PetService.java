@@ -273,6 +273,7 @@ public final class PetService extends Service {
         final long[] velT = new long[VEL_SAMPLES];
         int velCount;
         boolean interruptedEnd;
+        boolean layoutQueued;
         AnimationCatalog.Motion motion;
         final int canvasW, canvasH, pad, edgeEps;
         final ArrayDeque<Motion> bag = new ArrayDeque<>();
@@ -304,8 +305,8 @@ public final class PetService extends Service {
             if (savedAx != Integer.MIN_VALUE) ax = savedAx / 1000f * screenWidth;
             int savedAy = prefs.number("ay" + i, Integer.MIN_VALUE);
             if (savedAy != Integer.MIN_VALUE) ay = savedAy / 1000f * screenHeight;
-            lp.x = Math.round(ax - (ANCHOR_X - motion.x0()) * canvasW);
-            lp.y = Math.round(ay - (ANCHOR_Y - motion.y0()) * canvasH);
+            lp.x = Math.round(ax - (ANCHOR_X - motion.x0()) * canvasW - pad);
+            lp.y = Math.round(ay - (ANCHOR_Y - motion.y0()) * canvasH - pad);
             clamp();
             try { edge = Edge.valueOf(prefs.text("edge" + i, Edge.NONE.name())); }
             catch (IllegalArgumentException ignored) { edge = Edge.NONE; }
@@ -368,13 +369,6 @@ public final class PetService extends Service {
             return lp.y + (ANCHOR_Y - motion.y0()) * canvasH + pad;
         }
 
-        void face(float direction) {
-            float ax = anchorX();
-            view.setScaleX(direction);
-            lp.x += Math.round(ax - anchorX());
-            clamp(); refreshEdge(); update();
-        }
-
         void start() {
             if (prefs.flag("auto_play", true)) playNext(true);
             else play(catalog.match("待机"), false, true);
@@ -385,20 +379,22 @@ public final class PetService extends Service {
         }
 
         void play(AnimationCatalog.Motion m, boolean manual, boolean initial) {
-            play(m, manual, initial, false);
-        }
-
-        void play(AnimationCatalog.Motion m, boolean manual, boolean initial, boolean allowWhileDragging) {
-            if (m == null) return;
-            if (dragging && !allowWhileDragging) return;
+            if (m == null || dragging) return;
             cancelAuto();
             interruptedEnd = false;
+            final int generation = ++playGeneration;
+            view.play(m, () -> {
+                if (!destroyed && generation == playGeneration) applyMotion(m, manual);
+            }, () -> onEnd(generation));
+        }
+
+        void applyMotion(AnimationCatalog.Motion m, boolean manual) {
             Edge beforeEdge = edge;
             float ax = anchorX(), ay = anchorY();
             int[] win = windowSize(m);
             lp.width = win[0]; lp.height = win[1];
-            if (!allowWhileDragging && beforeEdge == Edge.LEFT) lp.x = 0;
-            else if (!allowWhileDragging && beforeEdge == Edge.RIGHT) lp.x = Math.max(0, screenWidth - lp.width);
+            if (beforeEdge == Edge.LEFT) lp.x = 0;
+            else if (beforeEdge == Edge.RIGHT) lp.x = Math.max(0, screenWidth - lp.width);
             else lp.x = Math.round(ax - (ANCHOR_X - m.x0()) * canvasW - pad);
             lp.y = Math.round(ay - (ANCHOR_Y - m.y0()) * canvasH - pad);
             clamp();
@@ -428,17 +424,11 @@ public final class PetService extends Service {
                 walkUntil = 0;
                 view.setScaleX(1);
             }
-            if (beforeEdge == Edge.NONE || allowWhileDragging) {
+            if (beforeEdge == Edge.NONE) {
                 lp.x += Math.round(ax - anchorX());
                 clamp(); refreshEdge(); update();
             }
-            final int generation = ++playGeneration;
-            view.play(m, () -> onEnd(generation));
             logPet("play " + m.name() + " beforeEdge=" + beforeEdge);
-        }
-
-        void playWhileDragging(AnimationCatalog.Motion m) {
-            play(m, true, false, true);
         }
 
         void onEnd(int generation) {
@@ -533,21 +523,22 @@ public final class PetService extends Service {
         }
 
         void pause(boolean value) {
-            view.pause(value);
             if (value) {
                 cancelAuto();
                 handler.removeCallbacks(hold);
                 dragging = false;
+                view.setDragLoop(false);
+                view.setGestureActive(false);
                 view.animate().cancel();
                 view.setScaleY(1f);
                 vx = vy = 0;
             }
-            else resumeCompleted();
+            view.pause(value);
+            if (!value) resumeCompleted();
         }
 
         void tap() {
-            AnimationCatalog.Motion m = catalog.nextClick(random, motion == null ? null : motion.id());
-            if (m != null) playManual(m);
+            // A tap is a squeeze/response, not a request to relocate or resize.
             say(this, new String[]{
                 "饭可以再添一碗吗？", "我在这里陪着你呀。", "摸摸头，就继续加油！", "今天也有好好吃饭吗？"
             }[random.nextInt(4)]);
@@ -596,6 +587,7 @@ public final class PetService extends Service {
                 case MotionEvent.ACTION_DOWN -> {
                     hideMenu(); hideBubble(); cancelAuto();
                     vx = vy = 0; dragging = true; moved = longPressed = false;
+                    view.setGestureActive(true);
                     walkUntil = 0;
                     downX = e.getRawX(); downY = e.getRawY();
                     startX = lp.x; startY = lp.y;
@@ -612,18 +604,10 @@ public final class PetService extends Service {
                     float dx = e.getRawX() - downX, dy = e.getRawY() - downY;
                     if (!moved && Math.hypot(dx, dy) > dp(8)) {
                         moved = true; handler.removeCallbacks(hold); hideMenu();
-                        // Restore the 0.1.0 drag pickup feedback; it is a visual
-                        // clip, not permission to change the drag position.
-                        AnimationCatalog.Motion pickup = catalog.match("被鼠标拖拽悬空反馈");
-                        if (pickup != null) {
-                            // Capture the intended body position before changing
-                            // crops. Keep the original finger origin: the first
-                            // MOVE may already contain a large coalesced delta.
-                            float originX = anchorX(), originY = anchorY();
-                            playWhileDragging(pickup);
-                            startX = originX - (ANCHOR_X - pickup.x0()) * canvasW - pad;
-                            startY = originY - (ANCHOR_Y - pickup.y0()) * canvasH - pad;
-                        }
+                        view.animate().cancel(); view.setScaleY(1f);
+                        // Freeze projection during the gesture, not animation.
+                        // Loop the same drawable so a long hold never freezes its last frame.
+                        view.setDragLoop(true);
                     }
                     if (moved && !prefs.flag("fixed", false)) {
                         float dx2 = e.getRawX() - downX, dy2 = e.getRawY() - downY;
@@ -643,34 +627,23 @@ public final class PetService extends Service {
                         clamp(); refreshEdge(); update();
                     }
                     view.animate().cancel();
-                    view.animate().scaleY(1.05f).setDuration(80).withEndAction(
-                        () -> view.animate().scaleY(1f).setDuration(100).start()).start();
+                    if (!moved && e.getActionMasked() == MotionEvent.ACTION_UP)
+                        view.animate().scaleY(1.05f).setDuration(80).withEndAction(
+                            () -> view.animate().scaleY(1f).setDuration(100).start()).start();
+                    else view.setScaleY(1f);
+                    view.setDragLoop(false);
+                    view.setGestureActive(false);
                     if (e.getActionMasked() == MotionEvent.ACTION_UP) {
                         if (moved) {
                             if (prefs.flag("physics", true) && !prefs.flag("fixed", false)) computeRawVelocity();
                             if (edge == Edge.LEFT && vx < 0) vx = 0;
                             if (edge == Edge.RIGHT && vx > 0) vx = 0;
-                            final float flingX = vx, flingY = vy;
-                            AnimationCatalog.Motion drop = catalog.match("原地漂浮踏步");
-                            if (drop != null) {
-                                play(drop, true, false);
-                                // play() may set a walk direction for the 移动 clip;
-                                // restore the actual release fling values.
-                                vx = flingX; vy = flingY;
-                                walkUntil = 0;
-                                if (edge == Edge.LEFT && vx < 0) vx = 0;
-                                if (edge == Edge.RIGHT && vx > 0) vx = 0;
-                                if (vx != 0) face(vx < 0 ? 1 : -1);
-                            } else if (prefs.flag("auto_play", true)) {
-                                scheduleNext();
-                            } else {
-                                vx = vy = 0;
-                            }
+                            walkUntil = 0;
                             save();
-                            interruptedEnd = false;
                         } else if (!longPressed) {
                             view.performClick();
                         }
+                        resumeCompleted();
                         logPet("up moved=" + moved + " raw=" + e.getRawX() + "," + e.getRawY() + " edge=" + edge + " velocity=" + vx + "," + vy);
                     } else {
                         if (moved) save();
@@ -691,7 +664,15 @@ public final class PetService extends Service {
             lp.y = Math.max(0, Math.min(Math.max(0, screenHeight - lp.height), lp.y));
         }
 
-        void update() { if (view.isAttachedToWindow()) try { windows.updateViewLayout(view, lp); } catch (RuntimeException e) { stopSelf(); } }
+        void update() {
+            if (layoutQueued || !view.isAttachedToWindow()) return;
+            layoutQueued = true;
+            view.postOnAnimation(() -> {
+                layoutQueued = false;
+                if (view.isAttachedToWindow()) try { windows.updateViewLayout(view, lp); }
+                catch (RuntimeException e) { stopSelf(); }
+            });
+        }
 
         void step() {
             if (dragging || prefs.flag("fixed", false)) return;

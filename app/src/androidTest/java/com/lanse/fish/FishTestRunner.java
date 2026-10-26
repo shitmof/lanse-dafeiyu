@@ -58,6 +58,14 @@ public final class FishTestRunner extends Instrumentation {
             Intent launch=new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);Activity activity=startActivitySync(launch);waitForIdleSync();
             PetView[] early=new PetView[1];runOnMainSync(()->{early[0]=new PetView(activity);early[0].play(catalog.match("吃白饭"));});SystemClock.sleep(400);
             runOnMainSync(()->activity.addContentView(early[0],new android.view.ViewGroup.LayoutParams(390,219)));SystemClock.sleep(400);check(early[0].getDrawable() instanceof AnimatedImageDrawable,"Decode finishing before window attachment is still displayed");
+            Drawable original=early[0].getDrawable();int[] ready={0};
+            runOnMainSync(()->{early[0].setGestureActive(true);early[0].setDragLoop(true);early[0].play(catalog.match("元气挥手"),()->ready[0]++,null);});
+            SystemClock.sleep(12000);waitForIdleSync(); // Original rice clip is ~10 seconds: crosses a real loop boundary.
+            check(early[0].getDrawable()==original&&ready[0]==0,"Decode must not replace frame or projection during gesture");
+            check(((AnimatedImageDrawable)original).isRunning(),"Previous clip keeps animating while replacement waits");
+            runOnMainSync(()->{early[0].setDragLoop(false);early[0].setGestureActive(false);});waitForIdleSync();
+            check(early[0].getDrawable()!=original&&ready[0]==1,"Release commits replacement and geometry together once");
+            runOnMainSync(()->early[0].play(catalog.match("吃白饭")));SystemClock.sleep(500);
             int[] finished={0};
             // stop() queues an end event. Restart must ignore that old event;
             // detach must not clear Android's list before that event executes.
@@ -68,17 +76,48 @@ public final class FishTestRunner extends Instrumentation {
             runOnMainSync(()->{early[0].pause(false);((AnimatedImageDrawable)early[0].getDrawable()).stop();((android.view.ViewGroup)early[0].getParent()).removeView(early[0]);});
             waitForIdleSync();check(finished[0]==0,"Queued end after detach neither crashes nor completes replaced clip");
             log("PASS: animated drawable restart, pause and queued-end detach regression.");
+            prefs.put("auto_play",false);prefs.put("physics",false);
             runOnMainSync(()->PetService.command(c,PetService.REFRESH,""));SystemClock.sleep(1800);check(PetService.running,"Overlay foreground service starts");
             AccessibilityServiceInfo info=getUiAutomation().getServiceInfo();info.flags|=AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;getUiAutomation().setServiceInfo(info);
             getUiAutomation().executeShellCommand("input keyevent 3").close();SystemClock.sleep(700);check(PetService.running,"Service survives Home");check(overlayCount()==1,"Exactly one visible overlay; no pending-window leak");
+            exerciseGestureWindow();
             prefs.put("count",3);runOnMainSync(()->PetService.command(c,PetService.REFRESH,""));SystemClock.sleep(700);check(overlayCount()==3,"Three-pet setting creates exactly three windows");
             prefs.put("count",1);runOnMainSync(()->PetService.command(c,PetService.REFRESH,""));SystemClock.sleep(700);check(overlayCount()==1,"Rebuilding removes all old windows");
             runOnMainSync(()->PetService.command(c,PetService.PLAY,catalog.match("吃白饭").id()));SystemClock.sleep(500);check(PetService.running,"Manual animation while backgrounded");
             runOnMainSync(()->PetService.command(c,PetService.STOP,""));SystemClock.sleep(500);check(!PetService.running,"Explicit stop removes service");check(!prefs.flag("enabled",true),"Stop persists opt-out");check(overlayCount()==0,"Stop removes every overlay window");
-            prefs.put("wander",true);runOnMainSync(activity::finish);
+            prefs.put("wander",true);prefs.put("auto_play",true);prefs.put("physics",true);runOnMainSync(activity::finish);
             log("PASS: user-started overlay service, Home/background operation, manual animation, explicit persisted stop.");
             result.putString("stream","\nOK: "+checks+" checks\n"+report);finish(Activity.RESULT_OK,result);
         }catch(Throwable t){result.putString("stream","\nFAIL after "+checks+" checks: "+t+"\n"+android.util.Log.getStackTraceString(t));finish(Activity.RESULT_CANCELED,result);}
+    }
+    private AccessibilityWindowInfo petWindow(int id){
+        for(AccessibilityWindowInfo w:getUiAutomation().getWindows()){
+            AccessibilityNodeInfo root=w.getRoot();
+            if(root!=null&&"com.lanse.fish".contentEquals(root.getPackageName())&&(id<0||w.getId()==id))return w;
+        }
+        throw new AssertionError("Expected pet window missing");
+    }
+    private Rect petBounds(int id){Rect r=new Rect();petWindow(id).getBoundsInScreen(r);return r;}
+    private void pointer(long down,int action,float x,float y){
+        android.view.MotionEvent e=android.view.MotionEvent.obtain(down,SystemClock.uptimeMillis(),action,x,y,0);
+        e.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);
+        try{check(getUiAutomation().injectInputEvent(e,true),"Pointer event dispatched");}finally{e.recycle();}
+    }
+    private void exerciseGestureWindow(){
+        int id=petWindow(-1).getId();Rect before=petBounds(id);
+        float x=before.centerX(),y=before.centerY(),direction=x>450?-1:1;
+        long down=SystemClock.uptimeMillis();pointer(down,0,x,y);
+        for(int i=1;i<=12;i++){
+            SystemClock.sleep(24);pointer(down,2,x+direction*i*7,y+i*3);
+        }
+        SystemClock.sleep(180);Rect moving=petBounds(id);
+        check(moving.width()==before.width()&&moving.height()==before.height(),"Actual drag window keeps identical dimensions");
+        check(Math.abs(moving.left-before.left)>40,"Actual drag moves pet");
+        pointer(down,1,x+direction*84,y+36);SystemClock.sleep(250);Rect dropped=petBounds(id);
+        check(moving.equals(dropped),"Release has no crop or mirror position jump with inertia disabled");
+        down=SystemClock.uptimeMillis();pointer(down,0,dropped.centerX(),dropped.centerY());SystemClock.sleep(80);pointer(down,1,dropped.centerX(),dropped.centerY());SystemClock.sleep(300);
+        check(dropped.equals(petBounds(id)),"Actual stationary tap preserves window and position");
+        log("PASS: injected touchscreen drag preserves dimensions; release and tap preserve position.");
     }
     private int overlayCount(){int count=0;for(AccessibilityWindowInfo window:getUiAutomation().getWindows()){AccessibilityNodeInfo root=window.getRoot();if(window.getType()==AccessibilityWindowInfo.TYPE_SYSTEM&&root!=null&&"com.lanse.fish".contentEquals(root.getPackageName()))count++;}return count;}
     private static final class MockServer implements AutoCloseable{
